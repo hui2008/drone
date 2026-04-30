@@ -1,0 +1,726 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+2 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>
+endobj
+4 0 obj
+<< /Length 2810 >>
+stream
+BT /F2 18 Tf 54.00 734.00 Td (ArduPilot Frontend and Backend Pattern) Tj ET
+BT /F2 14 Tf 54.00 689.00 Td (Table of Contents) Tj ET
+BT /F1 10 Tf 54.00 660.00 Td (- Pattern Shape) Tj ET
+BT /F1 10 Tf 54.00 646.00 Td (- Examples in ArduPilot) Tj ET
+BT /F1 10 Tf 54.00 632.00 Td (- Why ArduPilot Uses This) Tj ET
+BT /F1 10 Tf 54.00 618.00 Td (- RangeFinder Example) Tj ET
+BT /F1 10 Tf 62.00 604.00 Td (- Frontend: RangeFinder) Tj ET
+BT /F1 10 Tf 62.00 590.00 Td (- Parameters) Tj ET
+BT /F1 10 Tf 62.00 576.00 Td (- Backend Base: AP_RangeFinder_Backend) Tj ET
+BT /F1 10 Tf 62.00 562.00 Td (- Concrete Backend Example: Analog Rangefinder) Tj ET
+BT /F1 10 Tf 62.00 548.00 Td (- Lifecycle) Tj ET
+BT /F1 10 Tf 62.00 534.00 Td (- Relationship Summary) Tj ET
+BT /F1 10 Tf 54.00 520.00 Td (- Relation to SRV_Channel) Tj ET
+BT /F1 10 Tf 54.00 506.00 Td (- Correct Mental Model) Tj ET
+BT /F1 10 Tf 54.00 492.00 Td (- Codebase Layout) Tj ET
+BT /F1 10 Tf 54.00 478.00 Td (- Vehicle Applications) Tj ET
+BT /F1 10 Tf 54.00 464.00 Td (- Scheduler-Driven Execution) Tj ET
+BT /F1 10 Tf 54.00 450.00 Td (- Shared Library Families) Tj ET
+BT /F1 10 Tf 62.00 436.00 Td (- Sensor Frontends and Backends) Tj ET
+BT /F1 10 Tf 62.00 422.00 Td (- Estimation and Navigation) Tj ET
+BT /F1 10 Tf 62.00 408.00 Td (- Control Libraries) Tj ET
+BT /F1 10 Tf 62.00 394.00 Td (- Motors and Actuator Output) Tj ET
+BT /F1 10 Tf 62.00 380.00 Td (- Mission, GCS, Logging, Parameters) Tj ET
+BT /F1 10 Tf 54.00 366.00 Td (- Parameter Architecture) Tj ET
+BT /F1 10 Tf 54.00 352.00 Td (- HAL and Platform Separation) Tj ET
+BT /F1 10 Tf 54.00 338.00 Td (- Singleton and AP:: Access Pattern) Tj ET
+BT /F1 10 Tf 54.00 324.00 Td (- Compile-Time Feature Flags) Tj ET
+BT /F1 10 Tf 54.00 310.00 Td (- Common Architectural Flow) Tj ET
+BT /F1 10 Tf 54.00 289.00 Td (In ArduPilot firmware, frontend and backend usually mean:) Tj ET
+BT /F1 10 Tf 54.00 268.00 Td (- Frontend: the stable public API used by vehicle code and other libraries.) Tj ET
+BT /F1 10 Tf 54.00 254.00 Td (- Backend: the hardware-specific, protocol-specific, or implementation-specific driver behind that) Tj ET
+BT /F1 10 Tf 54.00 240.00 Td (  API.) Tj ET
+BT /F1 10 Tf 54.00 219.00 Td (This is common in embedded firmware because the vehicle code should not need to know whether a) Tj ET
+BT /F1 10 Tf 54.00 205.00 Td (sensor, actuator, telemetry link, or protocol is implemented by one chip, another chip, SITL,) Tj ET
+BT /F1 10 Tf 54.00 191.00 Td (CAN, serial, I2C, SPI, etc.) Tj ET
+BT /F2 14 Tf 54.00 162.00 Td (Pattern Shape) Tj ET
+BT /F1 10 Tf 54.00 133.00 Td (The frontend usually owns:) Tj ET
+BT /F1 10 Tf 54.00 112.00 Td (- public API) Tj ET
+BT /F1 10 Tf 54.00 98.00 Td (- parameters) Tj ET
+BT /F1 10 Tf 54.00 84.00 Td (- shared state) Tj ET
+BT /F1 10 Tf 54.00 70.00 Td (- instance lists) Tj ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 32 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 4 0 R >>
+endobj
+6 0 obj
+<< /Length 2782 >>
+stream
+BT /F1 10 Tf 54.00 738.00 Td (- scheduling/update flow) Tj ET
+BT /F1 10 Tf 54.00 724.00 Td (- detection and backend selection) Tj ET
+BT /F1 10 Tf 54.00 710.00 Td (- common validation and filtering) Tj ET
+BT /F1 10 Tf 54.00 689.00 Td (The backend usually owns:) Tj ET
+BT /F1 10 Tf 54.00 668.00 Td (- hardware-specific reads and writes) Tj ET
+BT /F1 10 Tf 54.00 654.00 Td (- protocol parsing) Tj ET
+BT /F1 10 Tf 54.00 640.00 Td (- bus/device handling) Tj ET
+BT /F1 10 Tf 54.00 626.00 Td (- driver-specific update logic) Tj ET
+BT /F1 10 Tf 54.00 612.00 Td (- pushing measurements or status back into frontend-owned state) Tj ET
+BT /F1 10 Tf 54.00 591.00 Td (This resembles a mix of:) Tj ET
+BT /F1 10 Tf 54.00 570.00 Td (- template method pattern) Tj ET
+BT /F1 10 Tf 54.00 556.00 Td (- strategy pattern) Tj ET
+BT /F1 10 Tf 54.00 542.00 Td (- callback/driver interface pattern) Tj ET
+BT /F1 10 Tf 54.00 521.00 Td (The frontend controls the high-level lifecycle. The backend implements the specific behavior.) Tj ET
+BT /F2 14 Tf 54.00 492.00 Td (Examples in ArduPilot) Tj ET
+BT /F1 10 Tf 54.00 463.00 Td (Common examples include:) Tj ET
+BT /F1 10 Tf 54.00 442.00 Td (- AP_InertialSensor) Tj ET
+BT /F1 10 Tf 62.00 428.00 Td (- frontend: AP_InertialSensor) Tj ET
+BT /F1 10 Tf 62.00 414.00 Td (- backend base: AP_InertialSensor_Backend) Tj ET
+BT /F1 10 Tf 62.00 400.00 Td (- implementations: specific IMU drivers) Tj ET
+BT /F1 10 Tf 54.00 379.00 Td (- AP_RangeFinder) Tj ET
+BT /F1 10 Tf 62.00 365.00 Td (- frontend: RangeFinder) Tj ET
+BT /F1 10 Tf 62.00 351.00 Td (- backend base: AP_RangeFinder_Backend) Tj ET
+BT /F1 10 Tf 62.00 337.00 Td (- implementations: different rangefinder sensors and protocols) Tj ET
+BT /F1 10 Tf 54.00 316.00 Td (- AP_Proximity) Tj ET
+BT /F1 10 Tf 62.00 302.00 Td (- frontend: AP_Proximity) Tj ET
+BT /F1 10 Tf 62.00 288.00 Td (- backend base: AP_Proximity_Backend) Tj ET
+BT /F1 10 Tf 62.00 274.00 Td (- implementations: lidar, MAVLink, DroneCAN, SITL, scripting, etc.) Tj ET
+BT /F1 10 Tf 54.00 253.00 Td (- AP_MSP) Tj ET
+BT /F1 10 Tf 62.00 239.00 Td (- frontend: AP_MSP) Tj ET
+BT /F1 10 Tf 62.00 225.00 Td (- backend base: AP_MSP_Telem_Backend) Tj ET
+BT /F1 10 Tf 62.00 211.00 Td (- implementations: generic MSP, DJI, DisplayPort, etc.) Tj ET
+BT /F1 10 Tf 54.00 190.00 Td (- AP_Networking) Tj ET
+BT /F1 10 Tf 62.00 176.00 Td (- frontend: AP_Networking) Tj ET
+BT /F1 10 Tf 62.00 162.00 Td (- backend base: AP_Networking_Backend) Tj ET
+BT /F1 10 Tf 62.00 148.00 Td (- implementations: networking-specific backends such as PPP) Tj ET
+BT /F2 14 Tf 54.00 119.00 Td (Why ArduPilot Uses This) Tj ET
+BT /F1 10 Tf 54.00 90.00 Td (The frontend/backend split lets vehicle code depend on stable behavior instead of specific) Tj ET
+BT /F1 10 Tf 54.00 76.00 Td (devices.) Tj ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 32 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 6 0 R >>
+endobj
+8 0 obj
+<< /Length 2923 >>
+stream
+BT /F1 10 Tf 54.00 738.00 Td (For example, vehicle code can ask the rangefinder frontend for distance without knowing whether) Tj ET
+BT /F1 10 Tf 54.00 724.00 Td (the data came from:) Tj ET
+BT /F1 10 Tf 54.00 703.00 Td (- a serial lidar) Tj ET
+BT /F1 10 Tf 54.00 689.00 Td (- an I2C rangefinder) Tj ET
+BT /F1 10 Tf 54.00 675.00 Td (- a DroneCAN sensor) Tj ET
+BT /F1 10 Tf 54.00 661.00 Td (- a MAVLink message) Tj ET
+BT /F1 10 Tf 54.00 647.00 Td (- a SITL simulated sensor) Tj ET
+BT /F1 10 Tf 54.00 626.00 Td (That keeps vehicle logic portable across boards, vehicles, and sensor combinations.) Tj ET
+BT /F2 14 Tf 54.00 597.00 Td (RangeFinder Example) Tj ET
+BT /F1 10 Tf 54.00 568.00 Td (The rangefinder library is a concrete example of the frontend/backend split.) Tj ET
+BT /F2 12 Tf 54.00 541.00 Td (Frontend: RangeFinder) Tj ET
+BT /F1 10 Tf 54.00 516.00 Td (The frontend class is RangeFinder:) Tj ET
+BT /F1 10 Tf 54.00 495.00 Td (- ardupilot/libraries/AP_RangeFinder/AP_RangeFinder.h) Tj ET
+BT /F1 10 Tf 54.00 481.00 Td (- ardupilot/libraries/AP_RangeFinder/AP_RangeFinder.cpp) Tj ET
+BT /F1 10 Tf 54.00 460.00 Td (It defines the stable interface used by vehicle code:) Tj ET
+BT /F1 10 Tf 54.00 439.00 Td (- init\(...\)) Tj ET
+BT /F1 10 Tf 54.00 425.00 Td (- update\(\)) Tj ET
+BT /F1 10 Tf 54.00 411.00 Td (- has_orientation\(...\)) Tj ET
+BT /F1 10 Tf 54.00 397.00 Td (- find_instance\(...\)) Tj ET
+BT /F1 10 Tf 54.00 383.00 Td (- get_backend\(...\)) Tj ET
+BT /F1 10 Tf 54.00 369.00 Td (- distance_orient\(...\)) Tj ET
+BT /F1 10 Tf 54.00 355.00 Td (- status_orient\(...\)) Tj ET
+BT /F1 10 Tf 54.00 341.00 Td (- has_data_orient\(...\)) Tj ET
+BT /F1 10 Tf 54.00 327.00 Td (- range_valid_count_orient\(...\)) Tj ET
+BT /F1 10 Tf 54.00 306.00 Td (It also defines the common rangefinder concepts:) Tj ET
+BT /F1 10 Tf 54.00 285.00 Td (- RangeFinder::Type: configured sensor/driver type, such as analog, PWM, MAVLink, DroneCAN, SITL,) Tj ET
+BT /F1 10 Tf 54.00 271.00 Td (  etc.) Tj ET
+BT /F1 10 Tf 54.00 257.00 Td (- RangeFinder::Status: NotConnected, NoData, OutOfRangeLow, OutOfRangeHigh, Good.) Tj ET
+BT /F1 10 Tf 54.00 243.00 Td (- RangeFinder::Function: conversion function for analog-style sensors.) Tj ET
+BT /F1 10 Tf 54.00 229.00 Td (- RangeFinder_State: normalized sensor state filled by backend drivers.) Tj ET
+BT /F1 10 Tf 54.00 208.00 Td (RangeFinder_State contains frontend-visible measurement state:) Tj ET
+BT /F1 10 Tf 54.00 187.00 Td (- distance_m) Tj ET
+BT /F1 10 Tf 54.00 173.00 Td (- signal_quality_pct) Tj ET
+BT /F1 10 Tf 54.00 159.00 Td (- voltage_mv) Tj ET
+BT /F1 10 Tf 54.00 145.00 Td (- status) Tj ET
+BT /F1 10 Tf 54.00 131.00 Td (- range_valid_count) Tj ET
+BT /F1 10 Tf 54.00 117.00 Td (- last_reading_ms) Tj ET
+BT /F1 10 Tf 54.00 96.00 Td (The frontend owns the arrays that connect all instances together:) Tj ET
+BT /F3 8 Tf 66.00 71.00 Td (AP_RangeFinder_Params params[RANGEFINDER_MAX_INSTANCES];) Tj ET
+endstream
+endobj
+9 0 obj
+<< /Type /Page /Parent 32 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 8 0 R >>
+endobj
+10 0 obj
+<< /Length 2657 >>
+stream
+BT /F3 8 Tf 66.00 738.00 Td (RangeFinder_State state[RANGEFINDER_MAX_INSTANCES];) Tj ET
+BT /F3 8 Tf 66.00 727.00 Td (AP_RangeFinder_Backend *drivers[RANGEFINDER_MAX_INSTANCES];) Tj ET
+BT /F1 10 Tf 54.00 705.00 Td (So the frontend owns parameters, shared state, the list of backend driver pointers, instance) Tj ET
+BT /F1 10 Tf 54.00 691.00 Td (count, driver detection, and public getters.) Tj ET
+BT /F1 10 Tf 54.00 670.00 Td (The RangeFinder object itself is owned by AP_Vehicle:) Tj ET
+BT /F3 8 Tf 66.00 645.00 Td (#if AP_RANGEFINDER_ENABLED) Tj ET
+BT /F3 8 Tf 66.00 634.00 Td (    RangeFinder rangefinder;) Tj ET
+BT /F3 8 Tf 66.00 623.00 Td (#endif) Tj ET
+BT /F1 10 Tf 54.00 601.00 Td (That is why vehicle code can call rangefinder.init\(...\) and rangefinder.update\(...\) without) Tj ET
+BT /F1 10 Tf 54.00 587.00 Td (constructing the sensor library itself.) Tj ET
+BT /F2 12 Tf 54.00 560.00 Td (Parameters) Tj ET
+BT /F1 10 Tf 54.00 535.00 Td (Vehicle parameter tables expose the rangefinder frontend under a vehicle-specific parameter) Tj ET
+BT /F1 10 Tf 54.00 521.00 Td (prefix. In Copter:) Tj ET
+BT /F3 8 Tf 66.00 496.00 Td (GOBJECT\(rangefinder, "RNGFND", RangeFinder\),) Tj ET
+BT /F1 10 Tf 54.00 474.00 Td (The frontend then creates per-instance groups:) Tj ET
+BT /F1 10 Tf 54.00 453.00 Td (- RNGFND1_) Tj ET
+BT /F1 10 Tf 54.00 439.00 Td (- RNGFND2_) Tj ET
+BT /F1 10 Tf 54.00 425.00 Td (- ...) Tj ET
+BT /F1 10 Tf 54.00 411.00 Td (- RNGFNDA_) Tj ET
+BT /F1 10 Tf 54.00 390.00 Td (Each instance uses AP_RangeFinder_Params, which defines common parameters such as:) Tj ET
+BT /F1 10 Tf 54.00 369.00 Td (- TYPE) Tj ET
+BT /F1 10 Tf 54.00 355.00 Td (- PIN) Tj ET
+BT /F1 10 Tf 54.00 341.00 Td (- SCALING) Tj ET
+BT /F1 10 Tf 54.00 327.00 Td (- OFFSET) Tj ET
+BT /F1 10 Tf 54.00 313.00 Td (- FUNCTION) Tj ET
+BT /F1 10 Tf 54.00 299.00 Td (- MIN) Tj ET
+BT /F1 10 Tf 54.00 285.00 Td (- MAX) Tj ET
+BT /F1 10 Tf 54.00 271.00 Td (- STOP_PIN) Tj ET
+BT /F1 10 Tf 54.00 257.00 Td (- RMETRIC) Tj ET
+BT /F1 10 Tf 54.00 243.00 Td (- PWRRNG) Tj ET
+BT /F1 10 Tf 54.00 229.00 Td (- GNDCLR) Tj ET
+BT /F1 10 Tf 54.00 215.00 Td (- ADDR) Tj ET
+BT /F1 10 Tf 54.00 201.00 Td (- POS_X, POS_Y, POS_Z) Tj ET
+BT /F1 10 Tf 54.00 187.00 Td (- ORIENT) Tj ET
+BT /F1 10 Tf 54.00 166.00 Td (Backend-specific parameters can also be exposed through backend_var_info when a backend supplies) Tj ET
+BT /F1 10 Tf 54.00 152.00 Td (extra parameter metadata.) Tj ET
+BT /F2 12 Tf 54.00 125.00 Td (Backend Base: AP_RangeFinder_Backend) Tj ET
+BT /F1 10 Tf 54.00 100.00 Td (The backend base class is:) Tj ET
+BT /F1 10 Tf 54.00 79.00 Td (- ardupilot/libraries/AP_RangeFinder/AP_RangeFinder_Backend.h) Tj ET
+endstream
+endobj
+11 0 obj
+<< /Type /Page /Parent 32 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 10 0 R >>
+endobj
+12 0 obj
+<< /Length 2978 >>
+stream
+BT /F1 10 Tf 54.00 738.00 Td (- ardupilot/libraries/AP_RangeFinder/AP_RangeFinder_Backend.cpp) Tj ET
+BT /F1 10 Tf 54.00 717.00 Td (It defines the driver contract:) Tj ET
+BT /F3 8 Tf 66.00 692.00 Td (virtual void update\(\) = 0;) Tj ET
+BT /F1 10 Tf 54.00 670.00 Td (It also provides common backend helpers:) Tj ET
+BT /F1 10 Tf 54.00 649.00 Td (- distance\(\)) Tj ET
+BT /F1 10 Tf 54.00 635.00 Td (- signal_quality_pct\(\)) Tj ET
+BT /F1 10 Tf 54.00 621.00 Td (- voltage_mv\(\)) Tj ET
+BT /F1 10 Tf 54.00 607.00 Td (- status\(\)) Tj ET
+BT /F1 10 Tf 54.00 593.00 Td (- orientation\(\)) Tj ET
+BT /F1 10 Tf 54.00 579.00 Td (- min_distance\(\)) Tj ET
+BT /F1 10 Tf 54.00 565.00 Td (- max_distance\(\)) Tj ET
+BT /F1 10 Tf 54.00 551.00 Td (- ground_clearance\(\)) Tj ET
+BT /F1 10 Tf 54.00 537.00 Td (- has_data\(\)) Tj ET
+BT /F1 10 Tf 54.00 523.00 Td (- range_valid_count\(\)) Tj ET
+BT /F1 10 Tf 54.00 509.00 Td (- last_reading_ms\(\)) Tj ET
+BT /F1 10 Tf 54.00 488.00 Td (The backend stores references to frontend-owned state and params:) Tj ET
+BT /F3 8 Tf 66.00 463.00 Td (RangeFinder::RangeFinder_State &state;) Tj ET
+BT /F3 8 Tf 66.00 452.00 Td (AP_RangeFinder_Params &params;) Tj ET
+BT /F1 10 Tf 54.00 430.00 Td (That is the key relationship: the backend does not own the public API state. It writes) Tj ET
+BT /F1 10 Tf 54.00 416.00 Td (measurements into the state object that the frontend owns.) Tj ET
+BT /F1 10 Tf 54.00 395.00 Td (The backend base also provides shared status logic:) Tj ET
+BT /F3 8 Tf 66.00 370.00 Td (void AP_RangeFinder_Backend::update_status\(...\) const) Tj ET
+BT /F3 8 Tf 66.00 359.00 Td ({) Tj ET
+BT /F3 8 Tf 66.00 348.00 Td (    if \(state_arg.distance_m > max_distance\(\)\) {) Tj ET
+BT /F3 8 Tf 66.00 337.00 Td (        set_status\(state_arg, RangeFinder::Status::OutOfRangeHigh\);) Tj ET
+BT /F3 8 Tf 66.00 326.00 Td (    } else if \(state_arg.distance_m < min_distance\(\)\) {) Tj ET
+BT /F3 8 Tf 66.00 315.00 Td (        set_status\(state_arg, RangeFinder::Status::OutOfRangeLow\);) Tj ET
+BT /F3 8 Tf 66.00 304.00 Td (    } else {) Tj ET
+BT /F3 8 Tf 66.00 293.00 Td (        set_status\(state_arg, RangeFinder::Status::Good\);) Tj ET
+BT /F3 8 Tf 66.00 282.00 Td (    }) Tj ET
+BT /F3 8 Tf 66.00 271.00 Td (}) Tj ET
+BT /F1 10 Tf 54.00 249.00 Td (So individual drivers normally read a measurement, store normalized fields, then call) Tj ET
+BT /F1 10 Tf 54.00 235.00 Td (update_status\(\).) Tj ET
+BT /F2 12 Tf 54.00 208.00 Td (Concrete Backend Example: Analog Rangefinder) Tj ET
+BT /F1 10 Tf 54.00 183.00 Td (The analog backend is:) Tj ET
+BT /F1 10 Tf 54.00 162.00 Td (- ardupilot/libraries/AP_RangeFinder/AP_RangeFinder_analog.h) Tj ET
+BT /F1 10 Tf 54.00 148.00 Td (- ardupilot/libraries/AP_RangeFinder/AP_RangeFinder_analog.cpp) Tj ET
+BT /F1 10 Tf 54.00 127.00 Td (It inherits from AP_RangeFinder_Backend:) Tj ET
+BT /F3 8 Tf 66.00 102.00 Td (class AP_RangeFinder_analog : public AP_RangeFinder_Backend) Tj ET
+BT /F1 10 Tf 54.00 80.00 Td (It implements:) Tj ET
+endstream
+endobj
+13 0 obj
+<< /Type /Page /Parent 32 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 12 0 R >>
+endobj
+14 0 obj
+<< /Length 3615 >>
+stream
+BT /F1 10 Tf 54.00 738.00 Td (- detect\(...\): checks whether the configured analog pin is usable.) Tj ET
+BT /F1 10 Tf 54.00 724.00 Td (- update\(\): reads analog voltage, converts voltage to distance, writes frontend state, updates) Tj ET
+BT /F1 10 Tf 54.00 710.00 Td (  status.) Tj ET
+BT /F1 10 Tf 54.00 689.00 Td (Its runtime flow is:) Tj ET
+BT /F3 8 Tf 66.00 664.00 Td (update_voltage\(\);) Tj ET
+BT /F3 8 Tf 66.00 653.00 Td (float v = state.voltage_mv * 0.001f;) Tj ET
+BT /F3 8 Tf 66.00 642.00 Td (state.distance_m = dist_m;) Tj ET
+BT /F3 8 Tf 66.00 631.00 Td (state.last_reading_ms = AP_HAL::millis\(\);) Tj ET
+BT /F3 8 Tf 66.00 620.00 Td (update_status\(\);) Tj ET
+BT /F1 10 Tf 54.00 598.00 Td (This is a backend responsibility because it knows how analog voltage maps to a rangefinder) Tj ET
+BT /F1 10 Tf 54.00 584.00 Td (distance. The vehicle code never needs to know that conversion.) Tj ET
+BT /F2 12 Tf 54.00 557.00 Td (Lifecycle) Tj ET
+BT /F1 10 Tf 54.00 532.00 Td (For Copter, the lifecycle looks like this:) Tj ET
+BT /F3 8 Tf 66.00 507.00 Td (Copter startup) Tj ET
+BT /F3 8 Tf 66.00 496.00 Td (  -> Copter::init_rangefinder\(\)) Tj ET
+BT /F3 8 Tf 66.00 485.00 Td (      -> rangefinder.set_log_rfnd_bit\(...\)) Tj ET
+BT /F3 8 Tf 66.00 474.00 Td (      -> rangefinder.init\(ROTATION_PITCH_270\)) Tj ET
+BT /F3 8 Tf 66.00 463.00 Td (          -> RangeFinder::detect_instance\(...\)) Tj ET
+BT /F3 8 Tf 66.00 452.00 Td (              -> switch on RNGFNDx_TYPE) Tj ET
+BT /F3 8 Tf 66.00 441.00 Td (              -> allocate matching AP_RangeFinder_Backend subclass) Tj ET
+BT /F3 8 Tf 66.00 422.00 Td (Copter scheduler) Tj ET
+BT /F3 8 Tf 66.00 411.00 Td (  -> Copter::read_rangefinder\(\)) Tj ET
+BT /F3 8 Tf 66.00 400.00 Td (      -> rangefinder.update\(\)) Tj ET
+BT /F3 8 Tf 66.00 389.00 Td (          -> for each backend: driver->update\(\)) Tj ET
+BT /F3 8 Tf 66.00 378.00 Td (              -> backend reads sensor/protocol/HAL) Tj ET
+BT /F3 8 Tf 66.00 367.00 Td (              -> backend writes RangeFinder_State) Tj ET
+BT /F3 8 Tf 66.00 356.00 Td (              -> backend updates status) Tj ET
+BT /F3 8 Tf 66.00 345.00 Td (      -> Copter uses frontend state for terrain/surface tracking logic) Tj ET
+BT /F1 10 Tf 54.00 323.00 Td (Concrete Copter links:) Tj ET
+BT /F1 10 Tf 54.00 302.00 Td (- ArduCopter/Parameters.cpp: exposes rangefinder as the RNGFND parameter group.) Tj ET
+BT /F1 10 Tf 54.00 288.00 Td (- ArduCopter/system.cpp: calls init_rangefinder\(\) during vehicle startup.) Tj ET
+BT /F1 10 Tf 54.00 274.00 Td (- ArduCopter/sensors.cpp: implements init_rangefinder\(\) and read_rangefinder\(\).) Tj ET
+BT /F1 10 Tf 54.00 260.00 Td (- ArduCopter/Copter.cpp: schedules read_rangefinder.) Tj ET
+BT /F1 10 Tf 54.00 239.00 Td (Other vehicles do the same pattern with different defaults. For example, Plane initializes with) Tj ET
+BT /F1 10 Tf 54.00 225.00 Td (ROTATION_PITCH_270, while Rover initializes with ROTATION_NONE.) Tj ET
+BT /F2 12 Tf 54.00 198.00 Td (Relationship Summary) Tj ET
+BT /F3 8 Tf 66.00 169.00 Td (Vehicle code) Tj ET
+BT /F3 8 Tf 66.00 158.00 Td (  -> RangeFinder frontend) Tj ET
+BT /F3 8 Tf 66.00 147.00 Td (      -> AP_RangeFinder_Backend base pointer) Tj ET
+BT /F3 8 Tf 66.00 136.00 Td (          -> concrete backend driver) Tj ET
+BT /F3 8 Tf 66.00 125.00 Td (              -> HAL / serial / I2C / CAN / MAVLink / SITL) Tj ET
+BT /F3 8 Tf 66.00 114.00 Td (              -> writes normalized RangeFinder_State) Tj ET
+BT /F3 8 Tf 66.00 103.00 Td (      -> frontend exposes normalized state back to vehicle code) Tj ET
+BT /F1 10 Tf 54.00 81.00 Td (Frontend responsibilities:) Tj ET
+endstream
+endobj
+15 0 obj
+<< /Type /Page /Parent 32 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 14 0 R >>
+endobj
+16 0 obj
+<< /Length 2890 >>
+stream
+BT /F1 10 Tf 54.00 738.00 Td (- stable public API) Tj ET
+BT /F1 10 Tf 54.00 724.00 Td (- common parameters) Tj ET
+BT /F1 10 Tf 54.00 710.00 Td (- instance arrays) Tj ET
+BT /F1 10 Tf 54.00 696.00 Td (- backend detection and allocation) Tj ET
+BT /F1 10 Tf 54.00 682.00 Td (- orientation-based lookup) Tj ET
+BT /F1 10 Tf 54.00 668.00 Td (- common status access) Tj ET
+BT /F1 10 Tf 54.00 654.00 Td (- logging integration) Tj ET
+BT /F1 10 Tf 54.00 633.00 Td (Backend responsibilities:) Tj ET
+BT /F1 10 Tf 54.00 612.00 Td (- specific sensor/protocol implementation) Tj ET
+BT /F1 10 Tf 54.00 598.00 Td (- hardware or message reads) Tj ET
+BT /F1 10 Tf 54.00 584.00 Td (- measurement conversion) Tj ET
+BT /F1 10 Tf 54.00 570.00 Td (- writing RangeFinder_State) Tj ET
+BT /F1 10 Tf 54.00 556.00 Td (- driver-specific status details) Tj ET
+BT /F1 10 Tf 54.00 535.00 Td (In short: vehicle code talks to RangeFinder; RangeFinder chooses and calls an) Tj ET
+BT /F1 10 Tf 54.00 521.00 Td (AP_RangeFinder_Backend; the backend talks to the actual sensor path and writes normalized) Tj ET
+BT /F1 10 Tf 54.00 507.00 Td (results back into frontend-owned state.) Tj ET
+BT /F2 14 Tf 54.00 478.00 Td (Relation to SRV_Channel) Tj ET
+BT /F1 10 Tf 54.00 449.00 Td (duff/libraries/SRV_Channel is an actuator routing and output abstraction layer.) Tj ET
+BT /F1 10 Tf 54.00 428.00 Td (It maps logical output functions such as:) Tj ET
+BT /F1 10 Tf 54.00 407.00 Td (- throttle) Tj ET
+BT /F1 10 Tf 54.00 393.00 Td (- motor outputs) Tj ET
+BT /F1 10 Tf 54.00 379.00 Td (- aileron) Tj ET
+BT /F1 10 Tf 54.00 365.00 Td (- steering) Tj ET
+BT /F1 10 Tf 54.00 351.00 Td (- lights) Tj ET
+BT /F1 10 Tf 54.00 337.00 Td (- sprayer) Tj ET
+BT /F1 10 Tf 54.00 323.00 Td (- camera trigger) Tj ET
+BT /F1 10 Tf 54.00 309.00 Td (- user actuators) Tj ET
+BT /F1 10 Tf 54.00 288.00 Td (onto physical output channels and output protocols.) Tj ET
+BT /F1 10 Tf 54.00 267.00 Td (SRV_Channel does not follow the same explicit Frontend / Backend naming style as many sensor) Tj ET
+BT /F1 10 Tf 54.00 253.00 Td (libraries. Instead, it sits above lower-level output mechanisms such as:) Tj ET
+BT /F1 10 Tf 54.00 232.00 Td (- hal.rcout) Tj ET
+BT /F1 10 Tf 54.00 218.00 Td (- PWM output) Tj ET
+BT /F1 10 Tf 54.00 204.00 Td (- DShot/BLHeli support) Tj ET
+BT /F1 10 Tf 54.00 190.00 Td (- DroneCAN output) Tj ET
+BT /F1 10 Tf 54.00 176.00 Td (- PiccoloCAN output) Tj ET
+BT /F1 10 Tf 54.00 162.00 Td (- SBUS/Volz/Robotis/FETtec output paths, depending on build options) Tj ET
+BT /F1 10 Tf 54.00 141.00 Td (So SRV_Channel is best described as a firmware actuator-output abstraction, while many sensor) Tj ET
+BT /F1 10 Tf 54.00 127.00 Td (and protocol libraries are best described as frontend/backend driver frameworks.) Tj ET
+BT /F2 14 Tf 54.00 98.00 Td (Correct Mental Model) Tj ET
+BT /F1 10 Tf 54.00 69.00 Td (For ArduPilot firmware, a useful model is:) Tj ET
+endstream
+endobj
+17 0 obj
+<< /Type /Page /Parent 32 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 16 0 R >>
+endobj
+18 0 obj
+<< /Length 3243 >>
+stream
+BT /F1 10 Tf 54.00 731.00 Td (- vehicle code uses stable frontend APIs) Tj ET
+BT /F1 10 Tf 54.00 717.00 Td (- frontends manage shared state and policy) Tj ET
+BT /F1 10 Tf 54.00 703.00 Td (- backends implement hardware/protocol-specific behavior) Tj ET
+BT /F1 10 Tf 54.00 689.00 Td (- actuator/output layers route logical commands to physical outputs) Tj ET
+BT /F1 10 Tf 54.00 675.00 Td (- HAL layers perform board-specific IO) Tj ET
+BT /F2 14 Tf 54.00 646.00 Td (Codebase Layout) Tj ET
+BT /F1 10 Tf 54.00 617.00 Td (The duff tree is organized around vehicle firmware, shared libraries, hardware abstraction,) Tj ET
+BT /F1 10 Tf 54.00 603.00 Td (tools, and simulation.) Tj ET
+BT /F1 10 Tf 54.00 582.00 Td (Important top-level areas:) Tj ET
+BT /F1 10 Tf 54.00 561.00 Td (- ArduCopter/) Tj ET
+BT /F1 10 Tf 62.00 547.00 Td (- Copter vehicle application.) Tj ET
+BT /F1 10 Tf 62.00 533.00 Td (- Contains Copter modes, motor update flow, arming checks, radio handling, GCS vehicle glue, and) Tj ET
+BT /F1 10 Tf 62.00 519.00 Td (  Copter-specific parameters.) Tj ET
+BT /F1 10 Tf 54.00 498.00 Td (- ArduPlane/) Tj ET
+BT /F1 10 Tf 62.00 484.00 Td (- Plane vehicle application.) Tj ET
+BT /F1 10 Tf 62.00 470.00 Td (- Contains Plane modes, fixed-wing servo logic, QuadPlane support, TECS integration, landing) Tj ET
+BT /F1 10 Tf 62.00 456.00 Td (  logic, and Plane-specific parameters.) Tj ET
+BT /F1 10 Tf 54.00 435.00 Td (- Rover/) Tj ET
+BT /F1 10 Tf 62.00 421.00 Td (- Rover vehicle application.) Tj ET
+BT /F1 10 Tf 62.00 407.00 Td (- Contains Rover modes, steering/throttle behavior, sailboat support, wheel encoder integration,) Tj ET
+BT /F1 10 Tf 62.00 393.00 Td (  and Rover-specific parameters.) Tj ET
+BT /F1 10 Tf 54.00 372.00 Td (- ArduSub/) Tj ET
+BT /F1 10 Tf 62.00 358.00 Td (- Submarine/ROV vehicle application.) Tj ET
+BT /F1 10 Tf 62.00 344.00 Td (- Contains Sub modes, joystick handling, lights, camera controls, thruster output, and) Tj ET
+BT /F1 10 Tf 62.00 330.00 Td (  Sub-specific parameters.) Tj ET
+BT /F1 10 Tf 54.00 309.00 Td (- AntennaTracker/) Tj ET
+BT /F1 10 Tf 62.00 295.00 Td (- Antenna tracker vehicle application.) Tj ET
+BT /F1 10 Tf 62.00 281.00 Td (- Contains yaw/pitch tracking logic and tracker servo outputs.) Tj ET
+BT /F1 10 Tf 54.00 260.00 Td (- Blimp/) Tj ET
+BT /F1 10 Tf 62.00 246.00 Td (- Blimp vehicle application.) Tj ET
+BT /F1 10 Tf 62.00 232.00 Td (- Contains blimp control, fins, motors, and vehicle parameters.) Tj ET
+BT /F1 10 Tf 54.00 211.00 Td (- Tools/AP_Periph/) Tj ET
+BT /F1 10 Tf 62.00 197.00 Td (- Peripheral firmware.) Tj ET
+BT /F1 10 Tf 62.00 183.00 Td (- Builds smaller CAN/peripheral nodes that reuse selected ArduPilot libraries.) Tj ET
+BT /F1 10 Tf 54.00 162.00 Td (- libraries/) Tj ET
+BT /F1 10 Tf 62.00 148.00 Td (- Shared reusable code.) Tj ET
+BT /F1 10 Tf 62.00 134.00 Td (- Most of the architecture lives here: sensors, estimators, control libraries, MAVLink/GCS,) Tj ET
+BT /F1 10 Tf 62.00 120.00 Td (  logging, parameters, HAL, CAN, scripting, terrain, mission handling, motors, actuator outputs,) Tj ET
+BT /F1 10 Tf 62.00 106.00 Td (  and protocol drivers.) Tj ET
+BT /F1 10 Tf 54.00 85.00 Td (- libraries/AP_HAL/) Tj ET
+BT /F1 10 Tf 62.00 71.00 Td (- Hardware abstraction interface.) Tj ET
+endstream
+endobj
+19 0 obj
+<< /Type /Page /Parent 32 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 18 0 R >>
+endobj
+20 0 obj
+<< /Length 3155 >>
+stream
+BT /F1 10 Tf 62.00 738.00 Td (- Defines abstract hardware services such as scheduler, GPIO, UART, I2C, SPI, storage, RC input,) Tj ET
+BT /F1 10 Tf 62.00 724.00 Td (  and RC output.) Tj ET
+BT /F1 10 Tf 54.00 703.00 Td (- libraries/AP_HAL_ChibiOS/, AP_HAL_Linux/, AP_HAL_SITL/, AP_HAL_ESP32/) Tj ET
+BT /F1 10 Tf 62.00 689.00 Td (- Board/platform implementations of the HAL.) Tj ET
+BT /F1 10 Tf 54.00 668.00 Td (- libraries/SITL/) Tj ET
+BT /F1 10 Tf 62.00 654.00 Td (- Simulation models and simulated devices.) Tj ET
+BT /F1 10 Tf 54.00 633.00 Td (- Tools/autotest/) Tj ET
+BT /F1 10 Tf 62.00 619.00 Td (- SITL integration test framework.) Tj ET
+BT /F1 10 Tf 54.00 598.00 Td (- modules/) Tj ET
+BT /F1 10 Tf 62.00 584.00 Td (- External submodules such as MAVLink, ChibiOS, gtest, and other third-party dependencies.) Tj ET
+BT /F2 14 Tf 54.00 555.00 Td (Vehicle Applications) Tj ET
+BT /F1 10 Tf 54.00 526.00 Td (Each vehicle directory is an application built from shared libraries.) Tj ET
+BT /F1 10 Tf 54.00 505.00 Td (Common files and roles:) Tj ET
+BT /F1 10 Tf 54.00 484.00 Td (- *.cpp with the vehicle class) Tj ET
+BT /F1 10 Tf 62.00 470.00 Td (- Owns the high-level vehicle object, setup flow, loop hooks, and scheduler task table.) Tj ET
+BT /F1 10 Tf 54.00 449.00 Td (- Parameters.h and Parameters.cpp) Tj ET
+BT /F1 10 Tf 62.00 435.00 Td (- Define vehicle-specific parameter groups and embed shared library parameter groups.) Tj ET
+BT /F1 10 Tf 62.00 421.00 Td (- For example, vehicle parameters include a SRV_Channels servo_channels object, then expose it) Tj ET
+BT /F1 10 Tf 62.00 407.00 Td (  under a parameter prefix such as SERVO.) Tj ET
+BT /F1 10 Tf 54.00 386.00 Td (- mode_*.cpp / mode classes) Tj ET
+BT /F1 10 Tf 62.00 372.00 Td (- Implement vehicle behavior for specific modes.) Tj ET
+BT /F1 10 Tf 62.00 358.00 Td (- Examples: manual, auto, guided, acro, RTL, loiter, training, etc.) Tj ET
+BT /F1 10 Tf 54.00 337.00 Td (- radio.cpp) Tj ET
+BT /F1 10 Tf 62.00 323.00 Td (- Reads RC input, configures auxiliary functions, and initializes output functions.) Tj ET
+BT /F1 10 Tf 54.00 302.00 Td (- GCS_*.cpp, GCS_MAVLink_*.cpp, GCS_*.h) Tj ET
+BT /F1 10 Tf 62.00 288.00 Td (- Vehicle-specific MAVLink/GCS behavior.) Tj ET
+BT /F1 10 Tf 62.00 274.00 Td (- These files customize generic GCS behavior for each vehicle.) Tj ET
+BT /F1 10 Tf 54.00 253.00 Td (- AP_Arming_*.cpp) Tj ET
+BT /F1 10 Tf 62.00 239.00 Td (- Vehicle-specific arming checks and arming/disarming side effects.) Tj ET
+BT /F1 10 Tf 54.00 218.00 Td (- wscript) Tj ET
+BT /F1 10 Tf 62.00 204.00 Td (- Declares libraries required by that vehicle build.) Tj ET
+BT /F1 10 Tf 54.00 183.00 Td (Vehicle code usually should not directly implement low-level device logic. It should call shared) Tj ET
+BT /F1 10 Tf 54.00 169.00 Td (libraries through stable APIs.) Tj ET
+BT /F2 14 Tf 54.00 140.00 Td (Scheduler-Driven Execution) Tj ET
+BT /F1 10 Tf 54.00 111.00 Td (Vehicle code is scheduled around periodic tasks rather than one large blocking loop.) Tj ET
+BT /F1 10 Tf 54.00 90.00 Td (The vehicle directories define task tables with macros such as:) Tj ET
+BT /F1 10 Tf 54.00 69.00 Td (- SCHED_TASK) Tj ET
+endstream
+endobj
+21 0 obj
+<< /Type /Page /Parent 32 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 20 0 R >>
+endobj
+22 0 obj
+<< /Length 2501 >>
+stream
+BT /F1 10 Tf 54.00 738.00 Td (- SCHED_TASK_CLASS) Tj ET
+BT /F1 10 Tf 54.00 724.00 Td (- FAST_TASK) Tj ET
+BT /F1 10 Tf 54.00 703.00 Td (Each task has:) Tj ET
+BT /F1 10 Tf 54.00 682.00 Td (- function or class method) Tj ET
+BT /F1 10 Tf 54.00 668.00 Td (- target rate in Hz) Tj ET
+BT /F1 10 Tf 54.00 654.00 Td (- expected/max runtime budget) Tj ET
+BT /F1 10 Tf 54.00 640.00 Td (- priority/order value) Tj ET
+BT /F1 10 Tf 54.00 619.00 Td (Examples of scheduled work:) Tj ET
+BT /F1 10 Tf 54.00 598.00 Td (- read radio input) Tj ET
+BT /F1 10 Tf 54.00 584.00 Td (- update AHRS) Tj ET
+BT /F1 10 Tf 54.00 570.00 Td (- update GPS) Tj ET
+BT /F1 10 Tf 54.00 556.00 Td (- update barometer) Tj ET
+BT /F1 10 Tf 54.00 542.00 Td (- update current mode) Tj ET
+BT /F1 10 Tf 54.00 528.00 Td (- set servos or motors) Tj ET
+BT /F1 10 Tf 54.00 514.00 Td (- update GCS) Tj ET
+BT /F1 10 Tf 54.00 500.00 Td (- update logging) Tj ET
+BT /F1 10 Tf 54.00 486.00 Td (- run failsafe checks) Tj ET
+BT /F1 10 Tf 54.00 465.00 Td (This is why many library APIs expose an update\(\) method. The vehicle scheduler calls those) Tj ET
+BT /F1 10 Tf 54.00 451.00 Td (methods at a controlled rate.) Tj ET
+BT /F2 14 Tf 54.00 422.00 Td (Shared Library Families) Tj ET
+BT /F1 10 Tf 54.00 393.00 Td (The libraries/ directory is not flat conceptually. It contains several recurring families.) Tj ET
+BT /F2 12 Tf 54.00 366.00 Td (Sensor Frontends and Backends) Tj ET
+BT /F1 10 Tf 54.00 341.00 Td (These libraries expose one stable frontend and multiple backends:) Tj ET
+BT /F1 10 Tf 54.00 320.00 Td (- AP_InertialSensor) Tj ET
+BT /F1 10 Tf 54.00 306.00 Td (- AP_GPS) Tj ET
+BT /F1 10 Tf 54.00 292.00 Td (- AP_Baro) Tj ET
+BT /F1 10 Tf 54.00 278.00 Td (- AP_Compass) Tj ET
+BT /F1 10 Tf 54.00 264.00 Td (- AP_RangeFinder) Tj ET
+BT /F1 10 Tf 54.00 250.00 Td (- AP_Proximity) Tj ET
+BT /F1 10 Tf 54.00 236.00 Td (- AP_OpticalFlow) Tj ET
+BT /F1 10 Tf 54.00 222.00 Td (- AP_Airspeed) Tj ET
+BT /F1 10 Tf 54.00 208.00 Td (- AP_BattMonitor) Tj ET
+BT /F1 10 Tf 54.00 194.00 Td (- AP_RPM) Tj ET
+BT /F1 10 Tf 54.00 180.00 Td (- AP_TemperatureSensor) Tj ET
+BT /F1 10 Tf 54.00 159.00 Td (The frontend normally manages:) Tj ET
+BT /F1 10 Tf 54.00 138.00 Td (- parameters) Tj ET
+BT /F1 10 Tf 54.00 124.00 Td (- instance count) Tj ET
+BT /F1 10 Tf 54.00 110.00 Td (- shared state arrays) Tj ET
+BT /F1 10 Tf 54.00 96.00 Td (- health/status checks) Tj ET
+BT /F1 10 Tf 54.00 82.00 Td (- public getters) Tj ET
+BT /F1 10 Tf 54.00 68.00 Td (- backend detection/allocation) Tj ET
+endstream
+endobj
+23 0 obj
+<< /Type /Page /Parent 32 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 22 0 R >>
+endobj
+24 0 obj
+<< /Length 2533 >>
+stream
+BT /F1 10 Tf 54.00 738.00 Td (- update loop) Tj ET
+BT /F1 10 Tf 54.00 717.00 Td (Backends normally implement:) Tj ET
+BT /F1 10 Tf 54.00 696.00 Td (- sensor detection) Tj ET
+BT /F1 10 Tf 54.00 682.00 Td (- bus reads) Tj ET
+BT /F1 10 Tf 54.00 668.00 Td (- protocol parsing) Tj ET
+BT /F1 10 Tf 54.00 654.00 Td (- sample accumulation) Tj ET
+BT /F1 10 Tf 54.00 640.00 Td (- copying data into frontend state) Tj ET
+BT /F2 12 Tf 54.00 613.00 Td (Estimation and Navigation) Tj ET
+BT /F1 10 Tf 54.00 588.00 Td (These libraries turn sensor data into state estimates and navigation outputs:) Tj ET
+BT /F1 10 Tf 54.00 567.00 Td (- AP_AHRS) Tj ET
+BT /F1 10 Tf 54.00 553.00 Td (- AP_NavEKF2) Tj ET
+BT /F1 10 Tf 54.00 539.00 Td (- AP_NavEKF3) Tj ET
+BT /F1 10 Tf 54.00 525.00 Td (- AP_InertialNav) Tj ET
+BT /F1 10 Tf 54.00 511.00 Td (- AP_GPS) Tj ET
+BT /F1 10 Tf 54.00 497.00 Td (- AP_VisualOdom) Tj ET
+BT /F1 10 Tf 54.00 483.00 Td (- AP_Beacon) Tj ET
+BT /F1 10 Tf 54.00 462.00 Td (The EKF code also uses a frontend/core split. For example, AP_NavEKF3 owns parameters and global) Tj ET
+BT /F1 10 Tf 54.00 448.00 Td (selection, while AP_NavEKF3_core instances run the filter math for individual IMU/core lanes.) Tj ET
+BT /F2 12 Tf 54.00 421.00 Td (Control Libraries) Tj ET
+BT /F1 10 Tf 54.00 396.00 Td (These libraries implement reusable controllers:) Tj ET
+BT /F1 10 Tf 54.00 375.00 Td (- AC_PID) Tj ET
+BT /F1 10 Tf 54.00 361.00 Td (- AC_AttitudeControl) Tj ET
+BT /F1 10 Tf 54.00 347.00 Td (- AC_PosControl) Tj ET
+BT /F1 10 Tf 54.00 333.00 Td (- AC_WPNav) Tj ET
+BT /F1 10 Tf 54.00 319.00 Td (- APM_Control) Tj ET
+BT /F1 10 Tf 54.00 305.00 Td (- AP_L1_Control) Tj ET
+BT /F1 10 Tf 54.00 291.00 Td (- AP_Landing) Tj ET
+BT /F1 10 Tf 54.00 277.00 Td (- AR_AttitudeControl) Tj ET
+BT /F1 10 Tf 54.00 263.00 Td (- AR_WPNav) Tj ET
+BT /F1 10 Tf 54.00 242.00 Td (Vehicle code decides which controller to call. The controller libraries calculate desired) Tj ET
+BT /F1 10 Tf 54.00 228.00 Td (attitude, rate, steering, throttle, or position outputs.) Tj ET
+BT /F2 12 Tf 54.00 201.00 Td (Motors and Actuator Output) Tj ET
+BT /F1 10 Tf 54.00 176.00 Td (These libraries sit near the output side of the stack:) Tj ET
+BT /F1 10 Tf 54.00 155.00 Td (- AP_Motors) Tj ET
+BT /F1 10 Tf 54.00 141.00 Td (- AR_Motors) Tj ET
+BT /F1 10 Tf 54.00 127.00 Td (- SRV_Channel) Tj ET
+BT /F1 10 Tf 54.00 113.00 Td (- AP_BLHeli) Tj ET
+BT /F1 10 Tf 54.00 99.00 Td (- AP_ESC_Telem) Tj ET
+BT /F1 10 Tf 54.00 85.00 Td (- AP_DroneCAN) Tj ET
+BT /F1 10 Tf 54.00 71.00 Td (- AP_PiccoloCAN) Tj ET
+endstream
+endobj
+25 0 obj
+<< /Type /Page /Parent 32 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 24 0 R >>
+endobj
+26 0 obj
+<< /Length 2787 >>
+stream
+BT /F1 10 Tf 54.00 738.00 Td (- AP_SBusOut) Tj ET
+BT /F1 10 Tf 54.00 724.00 Td (- AP_RobotisServo) Tj ET
+BT /F1 10 Tf 54.00 710.00 Td (- AP_FETtecOneWire) Tj ET
+BT /F1 10 Tf 54.00 689.00 Td (Typical flow:) Tj ET
+BT /F3 8 Tf 66.00 664.00 Td (vehicle mode / controller) Tj ET
+BT /F3 8 Tf 66.00 653.00 Td (  -> motor or servo demand) Tj ET
+BT /F3 8 Tf 66.00 642.00 Td (  -> AP_Motors / SRV_Channels) Tj ET
+BT /F3 8 Tf 66.00 631.00 Td (  -> HAL RCOutput or protocol-specific output) Tj ET
+BT /F3 8 Tf 66.00 620.00 Td (  -> physical actuator) Tj ET
+BT /F1 10 Tf 54.00 598.00 Td (SRV_Channel maps logical functions to physical outputs. AP_Motors handles multicopter motor) Tj ET
+BT /F1 10 Tf 54.00 584.00 Td (mixing and motor-specific constraints. Protocol libraries handle DShot, CAN, SBUS, and other) Tj ET
+BT /F1 10 Tf 54.00 570.00 Td (output mechanisms.) Tj ET
+BT /F2 12 Tf 54.00 543.00 Td (Mission, GCS, Logging, Parameters) Tj ET
+BT /F1 10 Tf 54.00 518.00 Td (These are cross-cutting services used by most vehicles:) Tj ET
+BT /F1 10 Tf 54.00 497.00 Td (- AP_Param) Tj ET
+BT /F1 10 Tf 62.00 483.00 Td (- Parameter storage, metadata, defaults, conversion, and grouped parameter tables.) Tj ET
+BT /F1 10 Tf 54.00 462.00 Td (- AP_Mission) Tj ET
+BT /F1 10 Tf 62.00 448.00 Td (- Mission command storage and mission command execution hooks.) Tj ET
+BT /F1 10 Tf 54.00 427.00 Td (- GCS_MAVLink) Tj ET
+BT /F1 10 Tf 62.00 413.00 Td (- MAVLink message handling and ground-station interface.) Tj ET
+BT /F1 10 Tf 54.00 392.00 Td (- AP_Logger) Tj ET
+BT /F1 10 Tf 62.00 378.00 Td (- Binary logs, streaming logs, logger backends, and log message definitions.) Tj ET
+BT /F1 10 Tf 54.00 357.00 Td (- AP_Scheduler) Tj ET
+BT /F1 10 Tf 62.00 343.00 Td (- Cooperative task scheduling and runtime accounting.) Tj ET
+BT /F1 10 Tf 54.00 322.00 Td (- AP_Arming) Tj ET
+BT /F1 10 Tf 62.00 308.00 Td (- Common arming checks and arming state.) Tj ET
+BT /F1 10 Tf 54.00 287.00 Td (- AP_BoardConfig) Tj ET
+BT /F1 10 Tf 62.00 273.00 Td (- Board-level configuration and startup checks.) Tj ET
+BT /F2 14 Tf 54.00 244.00 Td (Parameter Architecture) Tj ET
+BT /F1 10 Tf 54.00 215.00 Td (ArduPilot parameters are declared in C++ using AP_Param::GroupInfo tables and macros such as:) Tj ET
+BT /F1 10 Tf 54.00 194.00 Td (- AP_GROUPINFO) Tj ET
+BT /F1 10 Tf 54.00 180.00 Td (- AP_SUBGROUPINFO) Tj ET
+BT /F1 10 Tf 54.00 166.00 Td (- AP_SUBGROUPVARPTR) Tj ET
+BT /F1 10 Tf 54.00 152.00 Td (- GOBJECT) Tj ET
+BT /F1 10 Tf 54.00 138.00 Td (- GGROUP) Tj ET
+BT /F1 10 Tf 54.00 117.00 Td (This gives ArduPilot a consistent parameter system across vehicles and libraries.) Tj ET
+BT /F1 10 Tf 54.00 96.00 Td (Important parameter patterns:) Tj ET
+BT /F1 10 Tf 54.00 75.00 Td (- Vehicle parameter tables include vehicle-owned parameters.) Tj ET
+endstream
+endobj
+27 0 obj
+<< /Type /Page /Parent 32 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 26 0 R >>
+endobj
+28 0 obj
+<< /Length 2781 >>
+stream
+BT /F1 10 Tf 54.00 738.00 Td (- Shared library parameter tables define library-owned parameters.) Tj ET
+BT /F1 10 Tf 54.00 724.00 Td (- Vehicle code embeds library parameter groups under prefixes.) Tj ET
+BT /F1 10 Tf 54.00 710.00 Td (- Backends can expose backend-specific parameters through backend_var_info.) Tj ET
+BT /F1 10 Tf 54.00 696.00 Td (- Parameter conversion tables preserve old parameter names and formats across firmware upgrades.) Tj ET
+BT /F1 10 Tf 54.00 675.00 Td (For example, a vehicle can expose SRV_Channels as the SERVO parameter group, while each physical) Tj ET
+BT /F1 10 Tf 54.00 661.00 Td (channel exposes parameters such as SERVO1_MIN, SERVO1_MAX, SERVO1_TRIM, SERVO1_REVERSED, and) Tj ET
+BT /F1 10 Tf 54.00 647.00 Td (SERVO1_FUNCTION.) Tj ET
+BT /F2 14 Tf 54.00 618.00 Td (HAL and Platform Separation) Tj ET
+BT /F1 10 Tf 54.00 589.00 Td (The HAL is the main boundary between portable ArduPilot code and board/platform-specific code.) Tj ET
+BT /F1 10 Tf 54.00 568.00 Td (Portable code typically accesses hardware through:) Tj ET
+BT /F3 8 Tf 66.00 543.00 Td (extern const AP_HAL::HAL& hal;) Tj ET
+BT /F1 10 Tf 54.00 521.00 Td (Common HAL services include:) Tj ET
+BT /F1 10 Tf 54.00 500.00 Td (- hal.scheduler) Tj ET
+BT /F1 10 Tf 54.00 486.00 Td (- hal.gpio) Tj ET
+BT /F1 10 Tf 54.00 472.00 Td (- hal.uartX / serial manager) Tj ET
+BT /F1 10 Tf 54.00 458.00 Td (- hal.i2c_mgr) Tj ET
+BT /F1 10 Tf 54.00 444.00 Td (- hal.spi) Tj ET
+BT /F1 10 Tf 54.00 430.00 Td (- hal.storage) Tj ET
+BT /F1 10 Tf 54.00 416.00 Td (- hal.rcin) Tj ET
+BT /F1 10 Tf 54.00 402.00 Td (- hal.rcout) Tj ET
+BT /F1 10 Tf 54.00 381.00 Td (Platform-specific implementations live under HAL directories such as:) Tj ET
+BT /F1 10 Tf 54.00 360.00 Td (- AP_HAL_ChibiOS) Tj ET
+BT /F1 10 Tf 54.00 346.00 Td (- AP_HAL_Linux) Tj ET
+BT /F1 10 Tf 54.00 332.00 Td (- AP_HAL_SITL) Tj ET
+BT /F1 10 Tf 54.00 318.00 Td (- AP_HAL_ESP32) Tj ET
+BT /F1 10 Tf 54.00 297.00 Td (This lets the same vehicle and library code run on flight controllers, Linux boards, SITL, and) Tj ET
+BT /F1 10 Tf 54.00 283.00 Td (other supported platforms.) Tj ET
+BT /F2 14 Tf 54.00 254.00 Td (Singleton and AP:: Access Pattern) Tj ET
+BT /F1 10 Tf 54.00 225.00 Td (Many core services use a singleton-like pattern:) Tj ET
+BT /F1 10 Tf 54.00 204.00 Td (- class has _singleton) Tj ET
+BT /F1 10 Tf 54.00 190.00 Td (- class provides get_singleton\(\)) Tj ET
+BT /F1 10 Tf 54.00 176.00 Td (- namespace AP provides a convenient accessor) Tj ET
+BT /F1 10 Tf 54.00 155.00 Td (Example shape:) Tj ET
+BT /F3 8 Tf 66.00 130.00 Td (namespace AP {) Tj ET
+BT /F3 8 Tf 66.00 119.00 Td (    SomeLibrary &some_library\(\);) Tj ET
+BT /F3 8 Tf 66.00 108.00 Td (}) Tj ET
+BT /F1 10 Tf 54.00 86.00 Td (Vehicle and library code then calls APIs such as:) Tj ET
+endstream
+endobj
+29 0 obj
+<< /Type /Page /Parent 32 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 28 0 R >>
+endobj
+30 0 obj
+<< /Length 3081 >>
+stream
+BT /F1 10 Tf 54.00 738.00 Td (- AP::ahrs\(\)) Tj ET
+BT /F1 10 Tf 54.00 724.00 Td (- AP::logger\(\)) Tj ET
+BT /F1 10 Tf 54.00 710.00 Td (- AP::scheduler\(\)) Tj ET
+BT /F1 10 Tf 54.00 696.00 Td (- AP::srv\(\)) Tj ET
+BT /F1 10 Tf 54.00 682.00 Td (- AP::compass\(\)) Tj ET
+BT /F1 10 Tf 54.00 668.00 Td (- AP::mission\(\)) Tj ET
+BT /F1 10 Tf 54.00 647.00 Td (This makes global services accessible without passing every dependency through every call path.) Tj ET
+BT /F1 10 Tf 54.00 633.00 Td (It also means construction order and singleton availability matter.) Tj ET
+BT /F2 14 Tf 54.00 604.00 Td (Compile-Time Feature Flags) Tj ET
+BT /F1 10 Tf 54.00 575.00 Td (ArduPilot uses compile-time configuration heavily.) Tj ET
+BT /F1 10 Tf 54.00 554.00 Td (Common patterns:) Tj ET
+BT /F1 10 Tf 54.00 533.00 Td (- HAL_* flags for board/platform capability.) Tj ET
+BT /F1 10 Tf 54.00 519.00 Td (- AP_*_ENABLED flags for optional library features.) Tj ET
+BT /F1 10 Tf 54.00 505.00 Td (- CONFIG_HAL_BOARD checks for platform-specific behavior.) Tj ET
+BT /F1 10 Tf 54.00 491.00 Td (- HAL_BUILD_AP_PERIPH checks for peripheral firmware builds.) Tj ET
+BT /F1 10 Tf 54.00 470.00 Td (Examples:) Tj ET
+BT /F1 10 Tf 54.00 449.00 Td (- HAL_GCS_ENABLED) Tj ET
+BT /F1 10 Tf 54.00 435.00 Td (- HAL_LOGGING_ENABLED) Tj ET
+BT /F1 10 Tf 54.00 421.00 Td (- HAL_MAX_CAN_PROTOCOL_DRIVERS) Tj ET
+BT /F1 10 Tf 54.00 407.00 Td (- HAL_SUPPORT_RCOUT_SERIAL) Tj ET
+BT /F1 10 Tf 54.00 393.00 Td (- AP_SCRIPTING_ENABLED) Tj ET
+BT /F1 10 Tf 54.00 379.00 Td (- AP_PROXIMITY_ENABLED) Tj ET
+BT /F1 10 Tf 54.00 358.00 Td (This keeps firmware size under control and allows different products to build different subsets) Tj ET
+BT /F1 10 Tf 54.00 344.00 Td (of ArduPilot.) Tj ET
+BT /F2 14 Tf 54.00 315.00 Td (Common Architectural Flow) Tj ET
+BT /F1 10 Tf 54.00 286.00 Td (One simplified control cycle looks like this:) Tj ET
+BT /F3 8 Tf 66.00 261.00 Td (HAL / backend drivers collect sensor data) Tj ET
+BT /F3 8 Tf 66.00 250.00 Td (  -> sensor frontends publish stable sensor state) Tj ET
+BT /F3 8 Tf 66.00 239.00 Td (  -> AHRS / EKF estimate vehicle state) Tj ET
+BT /F3 8 Tf 66.00 228.00 Td (  -> vehicle mode chooses desired behavior) Tj ET
+BT /F3 8 Tf 66.00 217.00 Td (  -> navigation and control libraries calculate demands) Tj ET
+BT /F3 8 Tf 66.00 206.00 Td (  -> motors / SRV_Channel convert demands to actuator outputs) Tj ET
+BT /F3 8 Tf 66.00 195.00 Td (  -> HAL / protocol backends write physical outputs) Tj ET
+BT /F3 8 Tf 66.00 184.00 Td (  -> logger and GCS report state) Tj ET
+BT /F1 10 Tf 54.00 162.00 Td (The important architectural idea is separation of responsibilities:) Tj ET
+BT /F1 10 Tf 54.00 141.00 Td (- vehicle code decides behavior) Tj ET
+BT /F1 10 Tf 54.00 127.00 Td (- libraries provide reusable sensing, estimation, navigation, and control) Tj ET
+BT /F1 10 Tf 54.00 113.00 Td (- frontends hide backend implementation details) Tj ET
+BT /F1 10 Tf 54.00 99.00 Td (- HAL hides board implementation details) Tj ET
+BT /F1 10 Tf 54.00 85.00 Td (- output layers hide actuator routing and protocol details) Tj ET
+endstream
+endobj
+31 0 obj
+<< /Type /Page /Parent 32 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R /F2 2 0 R /F3 3 0 R >> >> /Contents 30 0 R >>
+endobj
+32 0 obj
+<< /Type /Pages /Kids [5 0 R 7 0 R 9 0 R 11 0 R 13 0 R 15 0 R 17 0 R 19 0 R 21 0 R 23 0 R 25 0 R 27 0 R 29 0 R 31 0 R] /Count 14 >>
+endobj
+33 0 obj
+<< /Type /Catalog /Pages 32 0 R >>
+endobj
+xref
+0 34
+0000000000 65535 f 
+0000000015 00000 n 
+0000000085 00000 n 
+0000000160 00000 n 
+0000000228 00000 n 
+0000003090 00000 n 
+0000003237 00000 n 
+0000006071 00000 n 
+0000006218 00000 n 
+0000009193 00000 n 
+0000009340 00000 n 
+0000012050 00000 n 
+0000012199 00000 n 
+0000015230 00000 n 
+0000015379 00000 n 
+0000019047 00000 n 
+0000019196 00000 n 
+0000022139 00000 n 
+0000022288 00000 n 
+0000025584 00000 n 
+0000025733 00000 n 
+0000028941 00000 n 
+0000029090 00000 n 
+0000031644 00000 n 
+0000031793 00000 n 
+0000034379 00000 n 
+0000034528 00000 n 
+0000037368 00000 n 
+0000037517 00000 n 
+0000040351 00000 n 
+0000040500 00000 n 
+0000043634 00000 n 
+0000043783 00000 n 
+0000043931 00000 n 
+trailer
+<< /Size 34 /Root 33 0 R >>
+startxref
+43982
+%%EOF
