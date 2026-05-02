@@ -1,180 +1,73 @@
-# Rover, AP_Scheduler, And Linux::Scheduler
+# Rover, Callbacks, AP_Scheduler, And Linux::Scheduler
 
 Generated on 2026-05-02.
 
-This note explains how `Rover.cpp` reaches `ardupilot/libraries/AP_HAL_Linux/Scheduler.cpp`, why there is no `Rover::loop()` in `Rover.cpp`, and how the vehicle task scheduler differs from the Linux platform scheduler.
+This document explains the path from `Rover.cpp` to `AP_HAL_Linux/Scheduler.cpp`, the role of `AP_HAL::HAL::Callbacks`, why ArduPilot uses `setup()` / `loop()`, and the difference between the vehicle scheduler (`AP_Scheduler`) and the Linux platform scheduler (`Linux::Scheduler`).
 
-## Core Idea
+## 1. Big Picture
 
 `Rover.cpp` does not directly include or call `AP_HAL_Linux/Scheduler.cpp`.
 
 The connection is indirect:
 
-1. `Rover.cpp` gets the active HAL with `AP_HAL::get_HAL()`.
-2. In a Linux build, `AP_HAL::get_HAL()` returns the global `HAL_Linux hal_linux`.
-3. `HAL_Linux` passes a `Linux::Scheduler` object into the generic `AP_HAL::HAL` base class.
-4. The base HAL stores that object as `hal.scheduler`.
-5. `AP_HAL_MAIN_CALLBACKS(&rover)` creates `main()` and calls `hal.run(argc, argv, &rover)`.
-6. Because `hal` is actually `HAL_Linux`, this calls `HAL_Linux::run()`.
-7. `HAL_Linux::run()` starts the Linux platform scheduler and repeatedly calls the vehicle callback loop.
-8. The vehicle callback loop is `AP_Vehicle::loop()`, not `Rover::loop()`.
-9. `AP_Vehicle::loop()` calls `AP_Scheduler::loop()`.
-10. `AP_Scheduler::loop()` runs tasks from `Rover::scheduler_tasks[]`.
-
-## The Correct Mental Model
-
-There are two scheduler layers:
-
 ```text
-Linux::Scheduler
-  Platform/HAL scheduler.
-  Provides Linux threads, delays, timer callbacks, IO callbacks, UART polling,
-  RC input polling, failsafe callback support, realtime setup, and CPU affinity.
+Rover.cpp
+  defines global Rover rover
+  passes &rover to AP_HAL_MAIN_CALLBACKS()
 
-AP_Scheduler
-  Vehicle task scheduler.
-  Runs the Rover task table: read_radio(), ahrs_update(),
-  update_current_mode(), set_servos(), logging tasks, and so on.
+AP_HAL_MAIN_CALLBACKS(&rover)
+  generates main()
+  calls hal.run(argc, argv, &rover)
+
+Linux build
+  AP_HAL::get_HAL() returns global HAL_Linux hal_linux
+  HAL_Linux owns Linux::Scheduler schedulerInstance
+  HAL_Linux passes &schedulerInstance into AP_HAL::HAL
+  AP_HAL::HAL stores it as hal.scheduler
+
+HAL_Linux::run()
+  starts Linux::Scheduler through hal.scheduler
+  calls callbacks->setup()
+  repeatedly calls callbacks->loop()
+
+callbacks == &rover
+  Rover inherits AP_Vehicle
+  AP_Vehicle implements AP_HAL::HAL::Callbacks
+  callbacks->loop() calls AP_Vehicle::loop()
+
+AP_Vehicle::loop()
+  calls AP_Scheduler::loop()
+  AP_Scheduler runs Rover::scheduler_tasks[]
 ```
 
-Important correction:
+The key correction:
 
 ```text
 Linux::Scheduler does not schedule Rover::scheduler_tasks[].
-
 AP_Scheduler schedules Rover::scheduler_tasks[].
-
-Linux::Scheduler supports lower-level timing/threading services underneath.
+Linux::Scheduler provides HAL/platform timing, threads, delays, IO, UART, RC input, and timer callback services.
 ```
 
-## Source File Map
+## 2. Source File Map
 
 Paths are relative to `ardupilot/`.
 
 | Concept | File |
 | --- | --- |
 | Rover class | `Rover/Rover.h` |
-| Rover task table and HAL main macro use | `Rover/Rover.cpp` |
-| Generic vehicle callback implementation | `libraries/AP_Vehicle/AP_Vehicle.h`, `libraries/AP_Vehicle/AP_Vehicle.cpp` |
+| Rover object, task table, HAL main macro | `Rover/Rover.cpp` |
+| Common vehicle callback implementation | `libraries/AP_Vehicle/AP_Vehicle.h`, `libraries/AP_Vehicle/AP_Vehicle.cpp` |
 | Vehicle task scheduler | `libraries/AP_Scheduler/AP_Scheduler.h`, `libraries/AP_Scheduler/AP_Scheduler.cpp` |
 | Generic HAL and callback interface | `libraries/AP_HAL/HAL.h` |
-| HAL main macro | `libraries/AP_HAL/AP_HAL_Main.h` |
-| Linux HAL object and run loop | `libraries/AP_HAL_Linux/HAL_Linux_Class.h`, `libraries/AP_HAL_Linux/HAL_Linux_Class.cpp` |
+| HAL main macros | `libraries/AP_HAL/AP_HAL_Main.h` |
+| Linux HAL object and `run()` | `libraries/AP_HAL_Linux/HAL_Linux_Class.h`, `libraries/AP_HAL_Linux/HAL_Linux_Class.cpp` |
 | Generic HAL scheduler interface | `libraries/AP_HAL/Scheduler.h` |
 | Linux platform scheduler | `libraries/AP_HAL_Linux/Scheduler.h`, `libraries/AP_HAL_Linux/Scheduler.cpp` |
+| Replay callback implementation | `Tools/Replay/Replay.h`, `Tools/Replay/Replay.cpp` |
 
-## Startup Path
+## 3. setup() / loop() Pattern
 
-### 1. Rover Gets The Active HAL
-
-Path: `Rover/Rover.cpp`
-
-```cpp
-const AP_HAL::HAL& hal = AP_HAL::get_HAL();
-```
-
-This gives Rover a reference to the board-specific HAL through the generic `AP_HAL::HAL` interface.
-
-### 2. Rover Passes Itself As HAL Callbacks
-
-Path: `Rover/Rover.cpp`
-
-```cpp
-Rover rover;
-AP_Vehicle& vehicle = rover;
-
-AP_HAL_MAIN_CALLBACKS(&rover);
-```
-
-The macro expands to a generated `main()` function. Conceptually, it becomes:
-
-```cpp
-int main(int argc, char* const argv[])
-{
-    hal.run(argc, argv, &rover);
-    return 0;
-}
-```
-
-The actual macro is in `libraries/AP_HAL/AP_HAL_Main.h`:
-
-```cpp
-#define AP_HAL_MAIN_CALLBACKS(CALLBACKS) extern "C" { \
-    int AP_MAIN(int argc, char* const argv[]); \
-    int AP_MAIN(int argc, char* const argv[]) { \
-        hal.run(argc, argv, CALLBACKS); \
-        return 0; \
-    } \
-    }
-```
-
-## What The Real callbacks Object Is
-
-In `HAL_Linux::run()`, the signature is:
-
-```cpp
-void HAL_Linux::run(int argc, char* const argv[], Callbacks* callbacks) const
-```
-
-The real object behind `callbacks` is the global `rover` object from `Rover.cpp`.
-
-Path: `Rover/Rover.cpp`
-
-```cpp
-Rover rover;
-AP_Vehicle& vehicle = rover;
-
-AP_HAL_MAIN_CALLBACKS(&rover);
-```
-
-Because `AP_HAL_MAIN_CALLBACKS(&rover)` expands to a generated `main()` that calls:
-
-```cpp
-hal.run(argc, argv, &rover);
-```
-
-the `callbacks` parameter receives this pointer:
-
-```text
-callbacks == &rover
-```
-
-The types are:
-
-```text
-static parameter type: AP_HAL::HAL::Callbacks*
-actual object:         Rover rover
-base class path:       Rover -> AP_Vehicle -> AP_HAL::HAL::Callbacks
-```
-
-The callback methods are implemented by `AP_Vehicle`, not by a separate `Rover::loop()` in `Rover.cpp`:
-
-```cpp
-class AP_Vehicle : public AP_HAL::HAL::Callbacks {
-    void setup(void) override final;
-    void loop() override final;
-};
-```
-
-So these calls in `HAL_Linux::run()`:
-
-```cpp
-callbacks->setup();
-callbacks->loop();
-```
-
-mean:
-
-```text
-call AP_Vehicle::setup() on the rover object
-call AP_Vehicle::loop() on the rover object
-```
-
-Rover-specific work is reached from inside those inherited `AP_Vehicle` callback methods, especially through Rover's scheduler task table and virtual hooks.
-
-## Why ArduPilot Uses setup()/loop()
-
-The `setup()` / `loop()` shape is a common ArduPilot pattern inherited from the Arduino-style sketch model:
+ArduPilot keeps an Arduino-style lifecycle:
 
 ```text
 setup()
@@ -184,54 +77,27 @@ loop()
   run repeatedly
 ```
 
-ArduPilot keeps this pattern because it gives every firmware target the same application lifecycle while still letting each HAL control platform-specific startup.
+The pattern is kept because ArduPilot runs on very different platforms:
+
+- Linux needs process arguments, signal handling, pthreads, UART device paths, CPU affinity, and Linux scheduling.
+- ChibiOS needs embedded board and hardware startup.
+- SITL needs simulator timing and simulated devices.
+- Examples and tests often only need small free `setup()` and `loop()` functions.
 
 The separation is:
 
 ```text
 HAL::run()
-  owns platform startup and the outer process/thread loop
+  owns platform mechanics and the outer run loop
 
 callbacks->setup()
 callbacks->loop()
-  own vehicle or application behavior
+  own application or vehicle behavior
 ```
 
-This is useful because ArduPilot runs on very different targets:
+This is inversion of control: the HAL owns platform startup, then calls back into the vehicle or example. Rover does not need to know how Linux, ChibiOS, or SITL start their processes.
 
-- Linux needs process arguments, signal handling, pthreads, UART paths, and Linux scheduling.
-- ChibiOS needs embedded board and hardware startup.
-- SITL needs simulator timing and simulated hardware.
-- Examples and tests may only need small free `setup()` and `loop()` functions.
-
-Without callbacks, each vehicle would need to know how every platform starts and runs. With callbacks, each HAL knows how to run the platform, and the vehicle only provides the lifecycle behavior.
-
-For simple examples, the pattern can be free functions:
-
-```cpp
-void setup() {}
-void loop() {}
-
-AP_HAL_MAIN();
-```
-
-For full vehicles such as Rover, the pattern is object-based:
-
-```cpp
-Rover rover;
-AP_HAL_MAIN_CALLBACKS(&rover);
-```
-
-The actual callback methods come from `AP_Vehicle`:
-
-```cpp
-class AP_Vehicle : public AP_HAL::HAL::Callbacks {
-    void setup(void) override final;
-    void loop() override final;
-};
-```
-
-That means all vehicles share the same high-level lifecycle:
+For full vehicles, `AP_Vehicle` keeps the lifecycle consistent:
 
 ```text
 AP_Vehicle::setup()
@@ -246,26 +112,13 @@ AP_Vehicle::loop()
   runs the vehicle task table
 ```
 
-`loop()` is `final` in `AP_Vehicle` so Rover, Plane, Copter, and other vehicles do not each invent a different main loop. Vehicle-specific behavior is added through scheduler task tables and virtual hooks instead.
+`AP_Vehicle::loop()` is `final`, so Rover, Plane, Copter, Sub, Blimp, and Tracker do not each invent a different main loop. Vehicle-specific behavior is added through task tables and virtual hooks.
 
-In short:
+## 4. AP_HAL_MAIN vs AP_HAL_MAIN_CALLBACKS
 
-```text
-setup()/loop() gives ArduPilot one common lifecycle.
-HAL::run() owns platform mechanics.
-AP_Vehicle owns the common vehicle lifecycle.
-Rover supplies Rover-specific tasks and hooks.
-```
+Both macros are defined in `libraries/AP_HAL/AP_HAL_Main.h`.
 
-## AP_HAL_MAIN vs AP_HAL_MAIN_CALLBACKS
-
-Both macros are defined in:
-
-```text
-libraries/AP_HAL/AP_HAL_Main.h
-```
-
-They both generate the program entry point. The generated function name is `AP_MAIN`; if `AP_MAIN` has not already been defined, `AP_HAL_Main.h` defines it as normal C/C++ `main`:
+Both generate the program entry point. The generated function name is `AP_MAIN`; if the build has not defined `AP_MAIN`, the header maps it to normal `main`:
 
 ```cpp
 #ifndef AP_MAIN
@@ -273,17 +126,9 @@ They both generate the program entry point. The generated function name is `AP_M
 #endif
 ```
 
-So both forms ultimately create:
-
-```cpp
-int main(int argc, char* const argv[])
-```
-
-or an equivalent `AP_MAIN(...)` entry point if the build has renamed it.
-
 ### AP_HAL_MAIN()
 
-`AP_HAL_MAIN()` is for examples and sketch-style programs that provide plain global functions:
+Use this when the program provides free functions:
 
 ```cpp
 void setup() {}
@@ -292,7 +137,7 @@ void loop() {}
 AP_HAL_MAIN();
 ```
 
-Its macro definition creates a `FunCallbacks` object from those free functions:
+The macro creates a callback wrapper:
 
 ```cpp
 #define AP_HAL_MAIN() \
@@ -306,13 +151,13 @@ Its macro definition creates a `FunCallbacks` object from those free functions:
     }
 ```
 
-So the callback object is:
+So:
 
 ```text
-AP_HAL::HAL::FunCallbacks callbacks(setup, loop)
+AP_HAL_MAIN()
+  creates AP_HAL::HAL::FunCallbacks callbacks(setup, loop)
+  passes &callbacks to hal.run()
 ```
-
-and `FunCallbacks::setup()` calls the global `setup()` function, while `FunCallbacks::loop()` calls the global `loop()` function.
 
 Examples using this style include:
 
@@ -324,9 +169,7 @@ libraries/AP_AHRS/examples/AHRS_Test/AHRS_Test.cpp
 
 ### AP_HAL_MAIN_CALLBACKS(CALLBACKS)
 
-`AP_HAL_MAIN_CALLBACKS(...)` is for code that already has an object implementing `AP_HAL::HAL::Callbacks`.
-
-Its macro definition directly passes that object to `hal.run()`:
+Use this when an existing object implements `AP_HAL::HAL::Callbacks`.
 
 ```cpp
 #define AP_HAL_MAIN_CALLBACKS(CALLBACKS) extern "C" { \
@@ -347,15 +190,13 @@ AP_Vehicle& vehicle = rover;
 AP_HAL_MAIN_CALLBACKS(&rover);
 ```
 
-The callback object is:
+That means:
 
 ```text
-&rover
+callbacks == &rover
 ```
 
-Because `Rover` inherits from `AP_Vehicle`, and `AP_Vehicle` implements `AP_HAL::HAL::Callbacks`, this is valid.
-
-Other full vehicle call sites use the same object-callback pattern, for example:
+Other full vehicles use the same pattern:
 
 ```cpp
 Copter copter;
@@ -364,23 +205,23 @@ AP_Vehicle& vehicle = copter;
 AP_HAL_MAIN_CALLBACKS(&copter);
 ```
 
-### Practical Difference
+Practical difference:
 
 ```text
 AP_HAL_MAIN()
-  Use when setup() and loop() are free functions.
-  The macro creates a FunCallbacks wrapper object.
-  Common in examples, sketches, and small tests.
+  free setup()/loop()
+  macro creates FunCallbacks
+  common in examples and small tests
 
 AP_HAL_MAIN_CALLBACKS(&object)
-  Use when an existing object implements AP_HAL::HAL::Callbacks.
-  The macro passes that object directly to hal.run().
-  Common in full vehicles such as Rover, Copter, Plane, Sub, Blimp, and Tracker.
+  object implements AP_HAL::HAL::Callbacks
+  macro passes object directly to hal.run()
+  common in full vehicle applications
 ```
 
-## Who Implements AP_HAL::HAL::Callbacks
+## 5. Who Implements AP_HAL::HAL::Callbacks
 
-`AP_HAL::HAL::Callbacks` is the small interface that a HAL can call through:
+`AP_HAL::HAL::Callbacks` is defined in `libraries/AP_HAL/HAL.h`:
 
 ```cpp
 struct Callbacks {
@@ -389,9 +230,9 @@ struct Callbacks {
 };
 ```
 
-In this source tree, the direct implementations fall into a few categories.
+Direct implementations in this tree include:
 
-### Real Vehicles
+### AP_Vehicle
 
 Path: `libraries/AP_Vehicle/AP_Vehicle.h`
 
@@ -399,14 +240,14 @@ Path: `libraries/AP_Vehicle/AP_Vehicle.h`
 class AP_Vehicle : public AP_HAL::HAL::Callbacks {
 ```
 
-`AP_Vehicle` is the important implementation for normal vehicle firmware. It implements:
+It implements:
 
 ```cpp
 void setup(void) override final;
 void loop() override final;
 ```
 
-Vehicle classes inherit that implementation:
+Full vehicles inherit that implementation:
 
 ```text
 Rover   -> AP_Vehicle -> AP_HAL::HAL::Callbacks
@@ -417,36 +258,7 @@ Blimp   -> AP_Vehicle -> AP_HAL::HAL::Callbacks
 Tracker -> AP_Vehicle -> AP_HAL::HAL::Callbacks
 ```
 
-For Rover, `callbacks == &rover`, but the callback methods are inherited from `AP_Vehicle`.
-
-### Replay Tool
-
-Path: `Tools/Replay/Replay.h`
-
-```cpp
-class Replay : public AP_HAL::HAL::Callbacks {
-```
-
-`Replay` is a tool, not a normal live vehicle firmware. It implements its own `setup()` and `loop()` so it can replay logs through ArduPilot systems.
-
-### Direct Example/Test Classes
-
-Some examples and tests implement `AP_HAL::HAL::Callbacks` directly when they want object-style state plus `setup()` and `loop()` methods.
-
-Examples in this tree include:
-
-```text
-libraries/RC_Channel/examples/RC_UART/RC_UART.cpp
-  class RC_UART : public AP_HAL::HAL::Callbacks
-
-libraries/AP_FlashStorage/examples/FlashTest/FlashTest.cpp
-  class FlashTest : public AP_HAL::HAL::Callbacks
-
-libraries/AP_Logger/examples/AP_Logger_AllTypes/AP_Logger_AllTypes.cpp
-  class AP_LoggerTest_AllTypes : public AP_HAL::HAL::Callbacks
-```
-
-### FunCallbacks Wrapper
+### FunCallbacks
 
 Path: `libraries/AP_HAL/HAL.h`
 
@@ -459,39 +271,95 @@ struct FunCallbacks : public Callbacks {
 };
 ```
 
-This is used by the simpler macro:
+`AP_HAL_MAIN()` uses this wrapper for free `setup()` and `loop()` functions.
+
+### Replay
+
+Path: `Tools/Replay/Replay.h`
 
 ```cpp
-AP_HAL_MAIN();
+class Replay : public AP_HAL::HAL::Callbacks {
 ```
 
-`AP_HAL_MAIN()` is for programs that define free functions:
+Replay is a tool, not normal live vehicle firmware. It implements its own callback lifecycle so it can replay logs through ArduPilot systems.
 
-```cpp
-void setup() {}
-void loop() {}
+### Direct Example/Test Classes
 
-AP_HAL_MAIN();
-```
-
-The macro wraps those free functions in a `FunCallbacks` object and passes that object to `hal.run()`.
-
-So the practical categories are:
+Some examples and tests implement callbacks directly when they need object state:
 
 ```text
-Full vehicles:
-  AP_Vehicle implements Callbacks.
-  Rover, Copter, Plane, Sub, Blimp, and Tracker inherit that implementation.
+libraries/RC_Channel/examples/RC_UART/RC_UART.cpp
+  class RC_UART : public AP_HAL::HAL::Callbacks
 
-Special tool:
-  Replay implements Callbacks directly.
+libraries/AP_FlashStorage/examples/FlashTest/FlashTest.cpp
+  class FlashTest : public AP_HAL::HAL::Callbacks
 
-Examples/tests:
-  Some implement their own callback class directly.
-  Many use FunCallbacks through AP_HAL_MAIN().
+libraries/AP_Logger/examples/AP_Logger_AllTypes/AP_Logger_AllTypes.cpp
+  class AP_LoggerTest_AllTypes : public AP_HAL::HAL::Callbacks
 ```
 
-### 3. Linux Provides The HAL Object
+## 6. The Real callbacks Object In Rover
+
+`HAL_Linux::run()` accepts a callback pointer:
+
+```cpp
+void HAL_Linux::run(int argc, char* const argv[], Callbacks* callbacks) const
+```
+
+For Rover, the real object is the global `rover` object:
+
+```cpp
+Rover rover;
+AP_Vehicle& vehicle = rover;
+
+AP_HAL_MAIN_CALLBACKS(&rover);
+```
+
+Because the macro calls:
+
+```cpp
+hal.run(argc, argv, &rover);
+```
+
+the runtime facts are:
+
+```text
+callbacks == &rover
+static parameter type: AP_HAL::HAL::Callbacks*
+actual object:         Rover rover
+base class path:       Rover -> AP_Vehicle -> AP_HAL::HAL::Callbacks
+```
+
+There is no `Rover::loop()` implementation in `Rover.cpp`.
+
+`Rover` inherits from `AP_Vehicle`:
+
+```cpp
+class Rover : public AP_Vehicle {
+```
+
+`AP_Vehicle` implements the callback methods:
+
+```cpp
+void setup(void) override final;
+void loop() override final;
+```
+
+Therefore:
+
+```text
+callbacks->setup()
+  calls AP_Vehicle::setup() on the rover object
+
+callbacks->loop()
+  calls AP_Vehicle::loop() on the rover object
+```
+
+Rover-specific behavior is reached from inside those inherited `AP_Vehicle` methods, especially through virtual hooks and Rover's task table.
+
+## 7. Linux HAL Wiring
+
+For a Linux build, `AP_HAL::get_HAL()` returns `hal_linux`.
 
 Path: `libraries/AP_HAL_Linux/HAL_Linux_Class.cpp`
 
@@ -509,15 +377,15 @@ AP_HAL::HAL &AP_HAL::get_HAL_mutable()
 }
 ```
 
-For a Linux build, the global `hal` reference in `Rover.cpp` refers to `hal_linux`.
-
-### 4. HAL_Linux Installs Linux::Scheduler Into The HAL
-
-Path: `libraries/AP_HAL_Linux/HAL_Linux_Class.cpp`
+`HAL_Linux` owns a static Linux scheduler instance:
 
 ```cpp
 static Scheduler schedulerInstance;
+```
 
+and passes it into the generic HAL:
+
+```cpp
 HAL_Linux::HAL_Linux() :
     AP_HAL::HAL(
         ...
@@ -530,39 +398,27 @@ HAL_Linux::HAL_Linux() :
 {}
 ```
 
-`schedulerInstance` is a `Linux::Scheduler`. It is passed into the base `AP_HAL::HAL` constructor.
-
-### 5. AP_HAL::HAL Stores The Scheduler Pointer
+The base HAL stores that pointer.
 
 Path: `libraries/AP_HAL/HAL.h`
 
-The constructor accepts a scheduler pointer:
-
 ```cpp
 AP_HAL::Scheduler*  _scheduler,
-```
-
-and stores it as:
-
-```cpp
+...
 scheduler(_scheduler),
-```
-
-The public member is:
-
-```cpp
+...
 AP_HAL::Scheduler* scheduler;
 ```
 
-So, after construction:
+So:
 
 ```text
 hal.scheduler -> Linux::Scheduler schedulerInstance
 ```
 
-## Where The Loops Are
+## 8. Where The Loops Are
 
-### HAL_Linux::run Is The Outer Process Loop
+### HAL_Linux::run Is The Outer Platform Loop
 
 Path: `libraries/AP_HAL_Linux/HAL_Linux_Class.cpp`
 
@@ -584,45 +440,9 @@ while (!_should_exit) {
 }
 ```
 
-This does two separate things:
+This starts platform services and then repeatedly calls the callback loop.
 
-- It starts platform services through `scheduler->init()` and `scheduler->set_system_initialized()`. On Linux, those calls dispatch to `Linux::Scheduler` in `AP_HAL_Linux/Scheduler.cpp`.
-- It repeatedly calls `callbacks->loop()`. Since `&rover` was passed as the callbacks object, this reaches the vehicle callback implementation inherited from `AP_Vehicle`.
-
-### There Is No Rover::loop In Rover.cpp
-
-Path: `Rover/Rover.h`
-
-```cpp
-class Rover : public AP_Vehicle {
-```
-
-Path: `libraries/AP_Vehicle/AP_Vehicle.h`
-
-```cpp
-class AP_Vehicle : public AP_HAL::HAL::Callbacks {
-```
-
-`AP_Vehicle` implements the HAL callbacks as final methods:
-
-```cpp
-void setup(void) override final;
-void loop() override final;
-```
-
-So this call in `HAL_Linux::run()`:
-
-```cpp
-callbacks->loop();
-```
-
-does not call `Rover::loop()` from `Rover.cpp`. It calls:
-
-```text
-AP_Vehicle::loop()
-```
-
-### AP_Vehicle::loop Drives AP_Scheduler
+### AP_Vehicle::loop Drives The Vehicle Scheduler
 
 Path: `libraries/AP_Vehicle/AP_Vehicle.cpp`
 
@@ -639,9 +459,9 @@ void AP_Vehicle::loop()
 }
 ```
 
-This `scheduler` is the vehicle-level `AP_Scheduler`, not `Linux::Scheduler`.
+This `scheduler` is the vehicle-level `AP_Scheduler`, not the HAL `Linux::Scheduler`.
 
-### AP_Scheduler::loop Runs The Task Table
+### AP_Scheduler::loop Runs Due Vehicle Tasks
 
 Path: `libraries/AP_Scheduler/AP_Scheduler.cpp`
 
@@ -657,7 +477,7 @@ void AP_Scheduler::loop()
 
 `run(time_available)` runs due tasks from the configured vehicle task table.
 
-## Rover's Task Table
+## 9. Rover's Task Table
 
 Path: `Rover/Rover.cpp`
 
@@ -671,20 +491,211 @@ const AP_Scheduler::Task Rover::scheduler_tasks[] = {
 };
 ```
 
-This table defines Rover vehicle work:
+This table defines vehicle work:
 
-- which function to run
-- how often to run it
-- how long it is expected to take
-- its priority relative to other vehicle tasks
+- function to run
+- requested rate
+- expected maximum runtime
+- priority relative to other vehicle tasks
 
 `AP_Scheduler`, not `Linux::Scheduler`, uses this table.
 
-## Linux::Scheduler's Job
+### Rover Task List
+
+The task table in `Rover.cpp` contains these entries. Some entries are only compiled when their feature flag is enabled.
+
+| No. | Task | Rate Hz | Max us | Priority | Condition |
+| ---: | --- | ---: | ---: | ---: | --- |
+| 1 | `read_radio` | 50 | 200 | 3 | always |
+| 2 | `ahrs_update` | 400 | 400 | 6 | always |
+| 3 | `read_rangefinders` | 50 | 200 | 9 | `AP_RANGEFINDER_ENABLED` |
+| 4 | `AP_OpticalFlow::update` | 200 | 160 | 11 | `AP_OPTICALFLOW_ENABLED` |
+| 5 | `update_current_mode` | 400 | 200 | 12 | always |
+| 6 | `set_servos` | 400 | 200 | 15 | always |
+| 7 | `AP_GPS::update` | 50 | 300 | 18 | always |
+| 8 | `AP_Baro::update` | 10 | 200 | 21 | always |
+| 9 | `AP_Beacon::update` | 50 | 200 | 24 | `AP_BEACON_ENABLED` |
+| 10 | `AP_Proximity::update` | 50 | 200 | 27 | `HAL_PROXIMITY_ENABLED` |
+| 11 | `AP_WindVane::update` | 20 | 100 | 30 | always |
+| 12 | `update_wheel_encoder` | 50 | 200 | 36 | always |
+| 13 | `update_compass` | 10 | 200 | 39 | always |
+| 14 | `update_logging1` | 10 | 200 | 45 | `HAL_LOGGING_ENABLED` |
+| 15 | `update_logging2` | 10 | 200 | 48 | `HAL_LOGGING_ENABLED` |
+| 16 | `GCS::update_receive` | 400 | 500 | 51 | always |
+| 17 | `GCS::update_send` | 400 | 1000 | 54 | always |
+| 18 | `RC_Channels::read_mode_switch` | 7 | 200 | 57 | always |
+| 19 | `RC_Channels::read_aux_all` | 10 | 200 | 60 | always |
+| 20 | `AP_BattMonitor::read` | 10 | 300 | 63 | always |
+| 21 | `AP_ServoRelayEvents::update_events` | 50 | 200 | 66 | `AP_SERVORELAYEVENTS_ENABLED` |
+| 22 | `update_precland` | 400 | 50 | 70 | `AC_PRECLAND_ENABLED` |
+| 23 | `AP_Mount::update` | 50 | 200 | 75 | `HAL_MOUNT_ENABLED` |
+| 24 | `AP_Camera::update` | 50 | 200 | 78 | `AP_CAMERA_ENABLED` |
+| 25 | `gcs_failsafe_check` | 10 | 200 | 81 | always |
+| 26 | `fence_check` | 10 | 200 | 84 | `AP_FENCE_ENABLED` |
+| 27 | `ekf_check` | 10 | 100 | 87 | always |
+| 28 | `ModeSmartRTL::save_position` | 3 | 200 | 90 | always |
+| 29 | `one_second_loop` | 1 | 1500 | 96 | always |
+| 30 | `AC_Sprayer::update` | 3 | 90 | 99 | `HAL_SPRAYER_ENABLED` |
+| 31 | `AP_Logger::periodic_tasks` | 50 | 300 | 108 | `HAL_LOGGING_ENABLED` |
+| 32 | `AP_InertialSensor::periodic` | 400 | 200 | 111 | always |
+| 33 | `AP_Scheduler::update_logging` | 0.1 | 200 | 114 | `HAL_LOGGING_ENABLED` |
+| 34 | `AP_Button::update` | 5 | 200 | 117 | `HAL_BUTTON_ENABLED` |
+| 35 | `crash_check` | 10 | 200 | 123 | always |
+| 36 | `cruise_learn_update` | 50 | 200 | 126 | always |
+| 37 | `afs_fs_check` | 10 | 200 | 129 | `AP_ROVER_ADVANCED_FAILSAFE_ENABLED` |
+
+## 10. Init And Setup Functions
+
+Startup is split across common vehicle setup and Rover-specific initialization.
+
+### Common AP_Vehicle Setup
+
+Path: `libraries/AP_Vehicle/AP_Vehicle.cpp`
+
+The common callback is:
+
+```cpp
+void AP_Vehicle::setup()
+```
+
+Important setup steps include:
+
+| No. | Function or action | Purpose |
+| ---: | --- | --- |
+| 1 | `AP_Param::setup_sketch_defaults()` | Load default parameter values from `var_info[]`. |
+| 2 | `serial_manager.init_console()` | Initialize the console early when serial manager is enabled. |
+| 3 | `AP_Param::check_var_info()` | Validate the parameter metadata table. |
+| 4 | `load_parameters()` | Calls the vehicle override; for Rover this is `Rover::load_parameters()`. |
+| 5 | `get_scheduler_tasks(...)` | Calls the vehicle override; for Rover this returns `Rover::scheduler_tasks[]`. |
+| 6 | `AP::scheduler().init(tasks, task_count, log_bit)` | Initializes the vehicle-level `AP_Scheduler` with Rover's task table. |
+| 7 | `set_control_channels()` | Sets control channels early. |
+| 8 | `gcs().init()` | Initializes GCS support when enabled. |
+| 9 | `serial_manager.init()` | Initializes serial ports. |
+| 10 | `gcs().setup_console()` | Sets up console routing through GCS support. |
+| 11 | `networking.init()` | Initializes networking when enabled. |
+| 12 | `hal.scheduler->register_delay_callback(...)` | Registers a delay callback with the HAL scheduler. |
+| 13 | `externalAHRS.init()` | Initializes external AHRS before vehicle-specific init when enabled. |
+| 14 | `generator.init()` | Initializes generator support when enabled. |
+| 15 | `stats.init()` | Initializes stats support when enabled. |
+| 16 | `BoardConfig.init()` | Initializes board configuration. |
+| 17 | `can_mgr.init()` | Initializes CAN manager when enabled. |
+| 18 | `msp.init()` | Initializes MSP before vehicle-specific init when enabled. |
+| 19 | `logger.init(...)` | Initializes logging when enabled. |
+| 20 | `AP::gripper().init()` | Initializes gripper support when enabled. |
+| 21 | `init_ardupilot()` | Calls the vehicle-specific init hook; for Rover this is `Rover::init_ardupilot()`. |
+| 22 | `scripting.init()` | Initializes scripting after vehicle-specific init when enabled. |
+| 23 | `airspeed.init()` | Initializes airspeed support when enabled. |
+| 24 | `AP::srv().init()` | Initializes SRV channel support when enabled. |
+| 25 | `gyro_fft.init(...)` | Initializes gyro FFT support late when enabled. |
+| 26 | `hott_telem.init()` | Initializes HoTT telemetry when enabled. |
+| 27 | `visual_odom.init()` | Initializes visual odometry when enabled. |
+| 28 | `vtx.init()`, `smartaudio.init()`, `tramp.init()` | Initialize video transmitter related backends when enabled. |
+| 29 | `opendroneid.init()` | Initializes OpenDroneID when enabled. |
+| 30 | `efi.init()` | Initializes EFI monitoring when enabled. |
+| 31 | `temperature_sensor.init()` | Initializes temperature sensor support when enabled. |
+| 32 | `kdecan.init()` | Initializes KDE CAN support when enabled. |
+| 33 | `ais.init()` | Initializes AIS when enabled. |
+| 34 | `nmea.init()` | Initializes NMEA output when enabled. |
+| 35 | `fence.init()` and `fence_init()` | Initializes fence support when enabled. |
+| 36 | `custom_rotations.init()` | Initializes custom rotations when enabled. |
+| 37 | `filters.init()` | Initializes filter support when enabled. |
+| 38 | `rpm_sensor.init()` | Initializes RPM sensor support when enabled. |
+| 39 | `AP::arming().init()` | Initializes arming checks when enabled. |
+| 40 | `AP_Param::invalidate_count()` | Invalidates parameter count after setup may have changed enabled modules. |
+| 41 | `GCS_SEND_TEXT(..., "ArduPilot Ready")` | Announces startup completion. |
+| 42 | `ibus_telem.init()` | Initializes IBUS telemetry when enabled. |
+
+### Rover-Specific init_ardupilot
+
+Path: `Rover/system.cpp`
+
+The Rover-specific hook is:
+
+```cpp
+void Rover::init_ardupilot()
+```
+
+Important Rover initialization steps include:
+
+| No. | Function or action | Purpose |
+| ---: | --- | --- |
+| 1 | `notify.init()` | Initializes notify system. |
+| 2 | `notify_mode(control_mode)` | Updates notify state for current mode. |
+| 3 | `battery.init()` | Initializes battery monitoring. |
+| 4 | `rssi.init()` | Initializes RSSI when enabled. |
+| 5 | `g2.windvane.init(serial_manager)` | Initializes wind vane support. |
+| 6 | `barometer.init()` | Initializes barometer early. |
+| 7 | `gcs().setup_uarts()` | Sets up GCS UARTs. |
+| 8 | `osd.init()` | Initializes OSD when enabled. |
+| 9 | `AP::compass().init()` | Initializes compass after setting log bit. |
+| 10 | `rangefinder.init(ROTATION_NONE)` | Initializes rangefinder when enabled. |
+| 11 | `g2.proximity.init()` | Initializes proximity when enabled. |
+| 12 | `g2.beacon.init()` | Initializes beacon support when enabled. |
+| 13 | `barometer.calibrate()` | Calibrates barometer for EKF use. |
+| 14 | `gps.init()` | Initializes GPS after setting log bit. |
+| 15 | `init_rc_in()` | Sets up RC channel deadzone/input handling. |
+| 16 | `g2.motors.init(get_frame_type())` | Initializes motors and servo output ranges. |
+| 17 | `AP::srv().enable_aux_servos()` | Enables auxiliary servo outputs. |
+| 18 | `g2.wheel_encoder.init()` | Initializes wheel encoders. |
+| 19 | `g2.torqeedo.init()` | Initializes Torqeedo motor driver when enabled. |
+| 20 | `optflow.init(MASK_LOG_OPTFLOW)` | Initializes optical flow when enabled. |
+| 21 | `relay.init()` | Initializes relay support when enabled. |
+| 22 | `camera_mount.init()` | Initializes camera mount when enabled. |
+| 23 | `camera.init()` | Initializes camera support when enabled. |
+| 24 | `init_precland()` | Initializes precision landing when enabled. |
+| 25 | `hal.scheduler->register_timer_failsafe(failsafe_check_static, 1000)` | Registers the main-loop-dead failsafe with the HAL scheduler. |
+| 26 | `g2.smart_rtl.init()` | Initializes SmartRTL. |
+| 27 | `g2.oa.init()` | Initializes object avoidance when enabled. |
+| 28 | `set_mode(mode_initializing, ModeReason::INITIALISED)` | Enters initializing mode. |
+| 29 | `startup_INS()` | Starts and initializes INS/AHRS path. |
+| 30 | `mode_auto.mission.init()` | Initializes mission library when enabled. |
+| 31 | `logger.setVehicle_Startup_Writer(...)` | Registers Rover startup log writer when logging is enabled. |
+| 32 | `mode_from_mode_num(...)` and `set_mode(...)` | Selects and enters initial mode. |
+| 33 | `rc().convert_options(...)` | Converts old RC aux options to current meanings. |
+| 34 | `rc().init()` | Initializes RC channels. |
+| 35 | `rover.g2.sailboat.init()` | Initializes sailboat support. |
+| 36 | `rover.g2.mis_done_behave.set_default(...)` | Sets boat mission-complete behavior default. |
+| 37 | `initialised = true` | Marks Rover initialization complete. |
+
+### Rover Parameter And Scheduler Hooks
+
+Path: `Rover/Parameters.cpp`
+
+```cpp
+void Rover::load_parameters(void)
+```
+
+This is called from `AP_Vehicle::setup()` through the virtual `load_parameters()` hook. It calls:
+
+```cpp
+AP_Vehicle::load_parameters(g.format_version, Parameters::k_format_version);
+```
+
+then performs Rover-specific parameter conversion and defaults.
+
+Path: `Rover/Rover.cpp`
+
+```cpp
+void Rover::get_scheduler_tasks(const AP_Scheduler::Task *&tasks,
+                                uint8_t &task_count,
+                                uint32_t &log_bit)
+```
+
+This is called from `AP_Vehicle::setup()`. It returns:
+
+```cpp
+tasks = &scheduler_tasks[0];
+task_count = ARRAY_SIZE(scheduler_tasks);
+log_bit = MASK_LOG_PM;
+```
+
+That is how `AP_Vehicle::setup()` gives `AP_Scheduler` Rover's task table.
+
+## 11. Linux::Scheduler's Job
 
 Path: `libraries/AP_HAL_Linux/Scheduler.cpp`
 
-`Linux::Scheduler::init()` creates platform worker threads:
+`Linux::Scheduler::init()` creates HAL/platform worker threads:
 
 ```cpp
 void Scheduler::init()
@@ -701,7 +712,7 @@ void Scheduler::init()
 }
 ```
 
-It also provides HAL services such as:
+It also implements HAL scheduler services:
 
 ```cpp
 void Scheduler::delay(uint16_t ms);
@@ -712,9 +723,14 @@ void Scheduler::register_timer_failsafe(AP_HAL::Proc failsafe, uint32_t period_u
 void Scheduler::set_system_initialized();
 ```
 
-So `Linux::Scheduler` schedules and services HAL/platform work, not Rover's `AP_Scheduler::Task` table.
+So:
 
-## Runtime Call Chain
+```text
+Linux::Scheduler schedules/services HAL platform work.
+It does not choose read_radio(), ahrs_update(), or set_servos().
+```
+
+## 12. Runtime Call Chain
 
 ```text
 Rover.cpp
@@ -739,9 +755,9 @@ Rover.cpp
                        -> tasks from Rover::scheduler_tasks[]
 ```
 
-## Mermaid Class Diagram
+## 13. Mermaid Class Diagram
 
-This diagram shows the important inheritance, ownership, callback, and scheduling relationships. File locations are relative to `ardupilot/`.
+File paths are relative to `ardupilot/`.
 
 ```mermaid
 classDiagram
@@ -750,6 +766,13 @@ classDiagram
     class HALCallbacks {
         <<interface>>
         file: libraries/AP_HAL/HAL.h
+        +setup()
+        +loop()
+    }
+
+    class FunCallbacks {
+        file: libraries/AP_HAL/HAL.h
+        wraps free setup()/loop()
         +setup()
         +loop()
     }
@@ -768,9 +791,12 @@ classDiagram
         task table: Rover/Rover.cpp
         +scheduler_tasks[] Task
         +get_scheduler_tasks()
-        +read_radio()
-        +ahrs_update()
-        +set_servos()
+    }
+
+    class Replay {
+        file: Tools/Replay/Replay.h
+        +setup()
+        +loop()
     }
 
     class AP_HAL_HAL {
@@ -784,26 +810,6 @@ classDiagram
         implementation: libraries/AP_HAL_Linux/HAL_Linux_Class.cpp
         -schedulerInstance Linux_Scheduler
         +run(argc, argv, callbacks)
-    }
-
-    class RoverCallbacksPointer {
-        <<runtime pointer>>
-        callbacks == &rover
-        static type: HALCallbacks*
-        actual object: Rover
-    }
-
-    class FunCallbacks {
-        file: libraries/AP_HAL/HAL.h
-        wraps free setup()/loop()
-        +setup()
-        +loop()
-    }
-
-    class Replay {
-        file: Tools/Replay/Replay.h
-        +setup()
-        +loop()
     }
 
     class AP_HAL_Scheduler {
@@ -843,8 +849,15 @@ classDiagram
         Rover::scheduler_tasks[]
     }
 
-    HALCallbacks <|-- AP_Vehicle
+    class RoverCallbacksPointer {
+        <<runtime pointer>>
+        callbacks == &rover
+        static type: HALCallbacks*
+        actual object: Rover
+    }
+
     HALCallbacks <|-- FunCallbacks
+    HALCallbacks <|-- AP_Vehicle
     HALCallbacks <|-- Replay
     AP_Vehicle <|-- Rover
 
@@ -856,7 +869,7 @@ classDiagram
 
     AP_Vehicle *-- AP_Scheduler : vehicle scheduler
     Rover --> SchedulerTaskTable : defines
-    AP_Scheduler --> SchedulerTaskTable : schedules and runs
+    AP_Scheduler --> SchedulerTaskTable : schedules/runs
 
     HAL_Linux --> HALCallbacks : callbacks->setup()/loop()
     HAL_Linux --> RoverCallbacksPointer : receives
@@ -864,47 +877,42 @@ classDiagram
     HAL_Linux --> AP_HAL_Scheduler : starts platform scheduler
 ```
 
-## Two Schedulers Compared
+## 14. Two Schedulers Compared
 
 | Question | AP_Scheduler | Linux::Scheduler |
 | --- | --- | --- |
-| Layer | Vehicle/application layer | HAL/platform layer |
+| Layer | Vehicle/application | HAL/platform |
 | Main files | `libraries/AP_Scheduler/*` | `libraries/AP_HAL_Linux/Scheduler.*` |
 | Main loop | `AP_Scheduler::loop()` | Linux worker threads plus HAL scheduler methods |
 | Uses `Rover::scheduler_tasks[]`? | Yes | No |
 | Runs `read_radio()`, `ahrs_update()`, `set_servos()`? | Yes | No |
 | Handles `hal.scheduler->delay()`? | No | Yes |
 | Handles timer, UART, RC input, IO platform threads? | No | Yes |
-| Started by | `AP_Vehicle::setup()` initializes the vehicle scheduler, then `AP_Vehicle::loop()` runs it | `HAL_Linux::run()` calls `scheduler->init()` |
+| Started by | `AP_Vehicle::setup()` initializes it; `AP_Vehicle::loop()` runs it | `HAL_Linux::run()` calls `scheduler->init()` |
 
-## Direct HAL Scheduler Calls
-
-Rover and common vehicle code can still call the HAL scheduler directly through `hal.scheduler`, for example:
-
-```cpp
-hal.scheduler->register_timer_failsafe(failsafe_check_static, 1000);
-hal.scheduler->delay(100);
-hal.scheduler->is_system_initialized();
-```
-
-On Linux, these dispatch to `Linux::Scheduler` methods in `AP_HAL_Linux/Scheduler.cpp`.
-
-These calls are platform services. They are separate from `AP_Scheduler::loop()` running Rover's task table.
-
-## Summary
-
-`Rover.cpp` reaches `AP_HAL_Linux/Scheduler.cpp` through the HAL object, not through a direct include. In a Linux build, `AP_HAL::get_HAL()` returns `hal_linux`; `HAL_Linux` installs `Linux::Scheduler` as `hal.scheduler`; and `HAL_Linux::run()` starts that platform scheduler.
-
-There is no `Rover::loop()` implementation in `Rover.cpp`. `Rover` inherits from `AP_Vehicle`, and `AP_Vehicle` implements the final HAL callback `loop()`.
-
-The real `callbacks` pointer in `HAL_Linux::run()` is `&rover`. Its static type is `AP_HAL::HAL::Callbacks*`, but the actual object is the global `Rover rover`. Calling `callbacks->setup()` and `callbacks->loop()` invokes `AP_Vehicle::setup()` and `AP_Vehicle::loop()` on that Rover object.
-
-The final runtime picture is:
+## 15. Summary
 
 ```text
-Linux::Scheduler
-  supports HAL/platform timing, delays, threads, IO, UART, RC input, and failsafe callbacks.
+setup()/loop()
+  common lifecycle pattern
+
+AP_HAL_MAIN()
+  wraps free setup()/loop() in FunCallbacks
+
+AP_HAL_MAIN_CALLBACKS(&rover)
+  passes the existing Rover object as callbacks
+
+callbacks in HAL_Linux::run()
+  static type: AP_HAL::HAL::Callbacks*
+  actual object: &rover
+  calls AP_Vehicle::setup() and AP_Vehicle::loop() on Rover
+
+AP_Vehicle::loop()
+  calls AP_Scheduler::loop()
 
 AP_Scheduler
-  runs Rover::scheduler_tasks[] and decides when Rover vehicle functions execute.
+  schedules and runs Rover::scheduler_tasks[]
+
+Linux::Scheduler
+  HAL/platform scheduler for Linux threads, delays, IO, UART, RC input, and timer/failsafe callbacks
 ```
