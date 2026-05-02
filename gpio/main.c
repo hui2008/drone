@@ -74,18 +74,20 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
-    printf("LED on GPIO%u is ON for 5 seconds\n", gpio_offset);
+    printf("GPIO%u LED is ON for 5 seconds, then blinking 10 times\n", gpio_offset);
     sleep(5);
 
-    if (gpiod_line_request_set_value(
-            request,
-            gpio_offset,
-            GPIOD_LINE_VALUE_INACTIVE
-        ) < 0) {
-        perror("gpiod_line_request_set_value");
-    } else {
-        printf("LED is OFF\n");
+    for (int i = 0; i < 10; i++) {
+        printf("Blink %d: GPIO%u LED ON\n", i + 1, gpio_offset);
+        gpiod_line_request_set_value(request, gpio_offset, GPIOD_LINE_VALUE_ACTIVE);
+        usleep(500000);
+
+        printf("Blink %d: GPIO%u LED OFF\n", i + 1, gpio_offset);
+        gpiod_line_request_set_value(request, gpio_offset, GPIOD_LINE_VALUE_INACTIVE);
+        usleep(500000);
     }
+
+    printf("GPIO%u LED blink sequence complete\n", gpio_offset);
 
     gpiod_line_request_release(request);
     gpiod_request_config_free(request_config);

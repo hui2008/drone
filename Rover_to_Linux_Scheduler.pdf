@@ -1,0 +1,559 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [7 0 R 9 0 R 11 0 R 13 0 R 15 0 R 17 0 R] /Count 6 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>
+endobj
+6 0 obj
+<< /Length 4932 >>
+stream
+BT
+/F2 16 Tf 1 0 0 1 42 800.00 Tm (How Rover.cpp Links To AP_HAL_Linux/Scheduler.cpp) Tj
+/F1 9.5 Tf 1 0 0 1 42 780.00 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 774.00 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 762.50 Tm (Generated on 2026-05-02.) Tj
+/F1 9.5 Tf 1 0 0 1 42 751.00 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 739.50 Tm (`Rover.cpp` does not directly include or call ) Tj
+/F1 9.5 Tf 1 0 0 1 42 728.00 Tm (`ardupilot/libraries/AP_HAL_Linux/Scheduler.cpp`. The connection is made through the ) Tj
+/F1 9.5 Tf 1 0 0 1 42 716.50 Tm (AP_HAL abstraction: `Rover.cpp` uses the global `hal` object, and for a Linux build ) Tj
+/F1 9.5 Tf 1 0 0 1 42 705.00 Tm (that object is a `HAL_Linux` instance whose `scheduler` pointer is a ) Tj
+/F1 9.5 Tf 1 0 0 1 42 693.50 Tm (`Linux::Scheduler` object.) Tj
+/F1 9.5 Tf 1 0 0 1 42 682.00 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 670.50 Tm () Tj
+/F2 12 Tf 1 0 0 1 42 666.50 Tm (Short Version) Tj
+/F1 9.5 Tf 1 0 0 1 42 650.50 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 639.00 Tm (1. `Rover.cpp` gets the active HAL with `AP_HAL::get_HAL\(\)`.) Tj
+/F1 9.5 Tf 1 0 0 1 42 627.50 Tm (2. In a Linux build, `AP_HAL::get_HAL\(\)` returns the global `HAL_Linux hal_linux` ) Tj
+/F1 9.5 Tf 1 0 0 1 42 616.00 Tm (object.) Tj
+/F1 9.5 Tf 1 0 0 1 42 604.50 Tm (3. `HAL_Linux` constructs the generic `AP_HAL::HAL` base class and passes ) Tj
+/F1 9.5 Tf 1 0 0 1 42 593.00 Tm (`&schedulerInstance` into it.) Tj
+/F1 9.5 Tf 1 0 0 1 42 581.50 Tm (4. The base `AP_HAL::HAL` stores that pointer as `hal.scheduler`.) Tj
+/F1 9.5 Tf 1 0 0 1 42 570.00 Tm (5. `AP_HAL_MAIN_CALLBACKS\(&rover\)` creates `main\(\)` and calls `hal.run\(argc, argv, ) Tj
+/F1 9.5 Tf 1 0 0 1 42 558.50 Tm (&rover\)`.) Tj
+/F1 9.5 Tf 1 0 0 1 42 547.00 Tm (6. Because `hal` is really `HAL_Linux`, that calls `HAL_Linux::run\(\)`.) Tj
+/F1 9.5 Tf 1 0 0 1 42 535.50 Tm (7. `HAL_Linux::run\(\)` calls `scheduler->init\(\)` and ) Tj
+/F1 9.5 Tf 1 0 0 1 42 524.00 Tm (`scheduler->set_system_initialized\(\)`.) Tj
+/F1 9.5 Tf 1 0 0 1 42 512.50 Tm (8. Those virtual calls dispatch to methods implemented in ) Tj
+/F1 9.5 Tf 1 0 0 1 42 501.00 Tm (`AP_HAL_Linux/Scheduler.cpp`.) Tj
+/F1 9.5 Tf 1 0 0 1 42 489.50 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 478.00 Tm () Tj
+/F2 12 Tf 1 0 0 1 42 474.00 Tm (Key Code Path) Tj
+/F1 9.5 Tf 1 0 0 1 42 458.00 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 446.50 Tm () Tj
+/F2 9.5 Tf 1 0 0 1 42 443.50 Tm (1. Rover.cpp Gets The HAL) Tj
+/F1 9.5 Tf 1 0 0 1 42 432.00 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 420.50 Tm (Path: `ardupilot/Rover/Rover.cpp`) Tj
+/F1 9.5 Tf 1 0 0 1 42 409.00 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 397.50 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 392.50 Tm (const AP_HAL::HAL& hal = AP_HAL::get_HAL\(\);) Tj
+/F1 9.5 Tf 1 0 0 1 42 383.70 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 378.70 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 367.20 Tm (This line gives Rover access to the board-specific HAL. It is written against the ) Tj
+/F1 9.5 Tf 1 0 0 1 42 355.70 Tm (generic `AP_HAL::HAL` interface, so Rover does not need to know whether the target is ) Tj
+/F1 9.5 Tf 1 0 0 1 42 344.20 Tm (Linux, ChibiOS, SITL, or another HAL.) Tj
+/F1 9.5 Tf 1 0 0 1 42 332.70 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 321.20 Tm () Tj
+/F2 9.5 Tf 1 0 0 1 42 318.20 Tm (2. Rover.cpp Defines The Program Entry Point) Tj
+/F1 9.5 Tf 1 0 0 1 42 306.70 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 295.20 Tm (Path: `ardupilot/Rover/Rover.cpp`) Tj
+/F1 9.5 Tf 1 0 0 1 42 283.70 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 272.20 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 267.20 Tm (Rover rover;) Tj
+/F3 7.3 Tf 1 0 0 1 42 258.40 Tm (AP_Vehicle& vehicle = rover;) Tj
+/F3 7.3 Tf 1 0 0 1 42 249.60 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 238.10 Tm (AP_HAL_MAIN_CALLBACKS\(&rover\);) Tj
+/F1 9.5 Tf 1 0 0 1 42 229.30 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 224.30 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 212.80 Tm (`Rover rover` creates the vehicle object. `AP_HAL_MAIN_CALLBACKS\(&rover\)` expands to a) Tj
+/F1 9.5 Tf 1 0 0 1 42 201.30 Tm ( `main\(\)` function that passes the Rover object into the HAL as callbacks.) Tj
+/F1 9.5 Tf 1 0 0 1 42 189.80 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 178.30 Tm (The macro comes from `ardupilot/libraries/AP_HAL/AP_HAL_Main.h`:) Tj
+/F1 9.5 Tf 1 0 0 1 42 166.80 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 155.30 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 150.30 Tm (#define AP_HAL_MAIN_CALLBACKS\(CALLBACKS\) extern "C" { \\) Tj
+/F3 7.3 Tf 1 0 0 1 42 141.50 Tm (    int AP_MAIN\(int argc, char* const argv[]\); \\) Tj
+/F3 7.3 Tf 1 0 0 1 42 132.70 Tm (    int AP_MAIN\(int argc, char* const argv[]\) { \\) Tj
+/F3 7.3 Tf 1 0 0 1 42 123.90 Tm (        hal.run\(argc, argv, CALLBACKS\); \\) Tj
+/F3 7.3 Tf 1 0 0 1 42 115.10 Tm (        return 0; \\) Tj
+/F3 7.3 Tf 1 0 0 1 42 106.30 Tm (    } \\) Tj
+/F3 7.3 Tf 1 0 0 1 42 97.50 Tm (    }) Tj
+/F1 9.5 Tf 1 0 0 1 42 88.70 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 83.70 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 72.20 Tm (So Rover startup becomes approximately:) Tj
+/F1 9.5 Tf 1 0 0 1 42 60.70 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 49.20 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 44.20 Tm (int main\(int argc, char* const argv[]\) {) Tj
+ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents 6 0 R >>
+endobj
+8 0 obj
+<< /Length 4710 >>
+stream
+BT
+/F3 7.3 Tf 1 0 0 1 42 800.00 Tm (    hal.run\(argc, argv, &rover\);) Tj
+/F3 7.3 Tf 1 0 0 1 42 791.20 Tm (    return 0;) Tj
+/F3 7.3 Tf 1 0 0 1 42 782.40 Tm (}) Tj
+/F1 9.5 Tf 1 0 0 1 42 773.60 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 768.60 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 757.10 Tm (Important detail: there is no `Rover::loop\(\)` implementation in `Rover.cpp`. `Rover` ) Tj
+/F1 9.5 Tf 1 0 0 1 42 745.60 Tm (inherits from `AP_Vehicle`:) Tj
+/F1 9.5 Tf 1 0 0 1 42 734.10 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 722.60 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 717.60 Tm (class Rover : public AP_Vehicle {) Tj
+/F1 9.5 Tf 1 0 0 1 42 708.80 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 703.80 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 692.30 Tm (`AP_Vehicle` inherits from `AP_HAL::HAL::Callbacks`:) Tj
+/F1 9.5 Tf 1 0 0 1 42 680.80 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 669.30 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 664.30 Tm (class AP_Vehicle : public AP_HAL::HAL::Callbacks {) Tj
+/F1 9.5 Tf 1 0 0 1 42 655.50 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 650.50 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 639.00 Tm (and implements the HAL callbacks as final methods:) Tj
+/F1 9.5 Tf 1 0 0 1 42 627.50 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 616.00 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 611.00 Tm (void setup\(void\) override final;) Tj
+/F3 7.3 Tf 1 0 0 1 42 602.20 Tm (void loop\(\) override final;) Tj
+/F1 9.5 Tf 1 0 0 1 42 593.40 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 588.40 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 576.90 Tm (So when `HAL_Linux::run\(\)` calls `callbacks->setup\(\)` and `callbacks->loop\(\)`, the ) Tj
+/F1 9.5 Tf 1 0 0 1 42 565.40 Tm (functions actually called are `AP_Vehicle::setup\(\)` and `AP_Vehicle::loop\(\)`. Rover-) Tj
+/F1 9.5 Tf 1 0 0 1 42 553.90 Tm (specific behavior is reached through virtual hooks and through Rover's scheduler task ) Tj
+/F1 9.5 Tf 1 0 0 1 42 542.40 Tm (table.) Tj
+/F1 9.5 Tf 1 0 0 1 42 530.90 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 519.40 Tm () Tj
+/F2 9.5 Tf 1 0 0 1 42 516.40 Tm (3. Linux Build Provides The HAL Object) Tj
+/F1 9.5 Tf 1 0 0 1 42 504.90 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 493.40 Tm (Path: `ardupilot/libraries/AP_HAL_Linux/HAL_Linux_Class.cpp`) Tj
+/F1 9.5 Tf 1 0 0 1 42 481.90 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 470.40 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 465.40 Tm (HAL_Linux hal_linux;) Tj
+/F3 7.3 Tf 1 0 0 1 42 456.60 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 445.10 Tm (const AP_HAL::HAL &AP_HAL::get_HAL\(\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 436.30 Tm ({) Tj
+/F3 7.3 Tf 1 0 0 1 42 427.50 Tm (    return hal_linux;) Tj
+/F3 7.3 Tf 1 0 0 1 42 418.70 Tm (}) Tj
+/F3 7.3 Tf 1 0 0 1 42 409.90 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 398.40 Tm (AP_HAL::HAL &AP_HAL::get_HAL_mutable\(\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 389.60 Tm ({) Tj
+/F3 7.3 Tf 1 0 0 1 42 380.80 Tm (    return hal_linux;) Tj
+/F3 7.3 Tf 1 0 0 1 42 372.00 Tm (}) Tj
+/F1 9.5 Tf 1 0 0 1 42 363.20 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 358.20 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 346.70 Tm (For a Linux target, `AP_HAL::get_HAL\(\)` returns `hal_linux`. This is why the `hal` ) Tj
+/F1 9.5 Tf 1 0 0 1 42 335.20 Tm (reference in `Rover.cpp` is actually referring to a Linux HAL object at runtime.) Tj
+/F1 9.5 Tf 1 0 0 1 42 323.70 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 312.20 Tm () Tj
+/F2 9.5 Tf 1 0 0 1 42 309.20 Tm (4. HAL_Linux Wires In The Linux Scheduler) Tj
+/F1 9.5 Tf 1 0 0 1 42 297.70 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 286.20 Tm (Path: `ardupilot/libraries/AP_HAL_Linux/HAL_Linux_Class.cpp`) Tj
+/F1 9.5 Tf 1 0 0 1 42 274.70 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 263.20 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 258.20 Tm (static Scheduler schedulerInstance;) Tj
+/F3 7.3 Tf 1 0 0 1 42 249.40 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 237.90 Tm (HAL_Linux::HAL_Linux\(\) :) Tj
+/F3 7.3 Tf 1 0 0 1 42 229.10 Tm (    AP_HAL::HAL\() Tj
+/F3 7.3 Tf 1 0 0 1 42 220.30 Tm (        ...) Tj
+/F3 7.3 Tf 1 0 0 1 42 211.50 Tm (        &rcinDriver,) Tj
+/F3 7.3 Tf 1 0 0 1 42 202.70 Tm (        &rcoutDriver,) Tj
+/F3 7.3 Tf 1 0 0 1 42 193.90 Tm (        &schedulerInstance,) Tj
+/F3 7.3 Tf 1 0 0 1 42 185.10 Tm (        &utilInstance,) Tj
+/F3 7.3 Tf 1 0 0 1 42 176.30 Tm (        ...) Tj
+/F3 7.3 Tf 1 0 0 1 42 167.50 Tm (    \)) Tj
+/F3 7.3 Tf 1 0 0 1 42 158.70 Tm ({}) Tj
+/F1 9.5 Tf 1 0 0 1 42 149.90 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 144.90 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 133.40 Tm (`schedulerInstance` is a `Linux::Scheduler`. The Linux HAL passes its address into the) Tj
+/F1 9.5 Tf 1 0 0 1 42 121.90 Tm ( generic `AP_HAL::HAL` constructor.) Tj
+/F1 9.5 Tf 1 0 0 1 42 110.40 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 98.90 Tm () Tj
+/F2 9.5 Tf 1 0 0 1 42 95.90 Tm (5. AP_HAL::HAL Stores The Scheduler Pointer) Tj
+/F1 9.5 Tf 1 0 0 1 42 84.40 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 72.90 Tm (Path: `ardupilot/libraries/AP_HAL/HAL.h`) Tj
+/F1 9.5 Tf 1 0 0 1 42 61.40 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 49.90 Tm (The constructor accepts a scheduler pointer:) Tj
+ET
+endstream
+endobj
+9 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents 8 0 R >>
+endobj
+10 0 obj
+<< /Length 4692 >>
+stream
+BT
+/F1 9.5 Tf 1 0 0 1 42 800.00 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 788.50 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 783.50 Tm (AP_HAL::Scheduler*  _scheduler,) Tj
+/F1 9.5 Tf 1 0 0 1 42 774.70 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 769.70 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 758.20 Tm (Then stores it:) Tj
+/F1 9.5 Tf 1 0 0 1 42 746.70 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 735.20 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 730.20 Tm (scheduler\(_scheduler\),) Tj
+/F1 9.5 Tf 1 0 0 1 42 721.40 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 716.40 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 704.90 Tm (The public member is:) Tj
+/F1 9.5 Tf 1 0 0 1 42 693.40 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 681.90 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 676.90 Tm (AP_HAL::Scheduler* scheduler;) Tj
+/F1 9.5 Tf 1 0 0 1 42 668.10 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 663.10 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 651.60 Tm (After construction, `hal.scheduler` points to the Linux scheduler instance.) Tj
+/F1 9.5 Tf 1 0 0 1 42 640.10 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 628.60 Tm () Tj
+/F2 9.5 Tf 1 0 0 1 42 625.60 Tm (6. HAL_Linux::run Starts The Scheduler) Tj
+/F1 9.5 Tf 1 0 0 1 42 614.10 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 602.60 Tm (Path: `ardupilot/libraries/AP_HAL_Linux/HAL_Linux_Class.cpp`) Tj
+/F1 9.5 Tf 1 0 0 1 42 591.10 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 579.60 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 574.60 Tm (scheduler->init\(\);) Tj
+/F3 7.3 Tf 1 0 0 1 42 565.80 Tm (gpio->init\(\);) Tj
+/F3 7.3 Tf 1 0 0 1 42 557.00 Tm (rcout->init\(\);) Tj
+/F3 7.3 Tf 1 0 0 1 42 548.20 Tm (rcin->init\(\);) Tj
+/F3 7.3 Tf 1 0 0 1 42 539.40 Tm (serial\(0\)->begin\(115200\);) Tj
+/F3 7.3 Tf 1 0 0 1 42 530.60 Tm (analogin->init\(\);) Tj
+/F3 7.3 Tf 1 0 0 1 42 521.80 Tm (utilInstance.init\(argc+gopt.optind-1, &argv[gopt.optind-1]\);) Tj
+/F3 7.3 Tf 1 0 0 1 42 513.00 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 501.50 Tm (scheduler->set_system_initialized\(\);) Tj
+/F3 7.3 Tf 1 0 0 1 42 492.70 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 481.20 Tm (callbacks->setup\(\);) Tj
+/F3 7.3 Tf 1 0 0 1 42 472.40 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 460.90 Tm (while \(!_should_exit\) {) Tj
+/F3 7.3 Tf 1 0 0 1 42 452.10 Tm (    callbacks->loop\(\);) Tj
+/F3 7.3 Tf 1 0 0 1 42 443.30 Tm (}) Tj
+/F1 9.5 Tf 1 0 0 1 42 434.50 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 429.50 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 418.00 Tm (Here `scheduler` is the `AP_HAL::HAL::scheduler` pointer. Since it points to ) Tj
+/F1 9.5 Tf 1 0 0 1 42 406.50 Tm (`Linux::Scheduler`, these calls execute code from `AP_HAL_Linux/Scheduler.cpp`.) Tj
+/F1 9.5 Tf 1 0 0 1 42 395.00 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 383.50 Tm (The `callbacks->loop\(\)` call does not call a `Rover::loop\(\)` method in `Rover.cpp`. It) Tj
+/F1 9.5 Tf 1 0 0 1 42 372.00 Tm ( calls `AP_Vehicle::loop\(\)`, because `Rover` inherits that final callback ) Tj
+/F1 9.5 Tf 1 0 0 1 42 360.50 Tm (implementation from `AP_Vehicle`.) Tj
+/F1 9.5 Tf 1 0 0 1 42 349.00 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 337.50 Tm () Tj
+/F2 9.5 Tf 1 0 0 1 42 334.50 Tm (7. AP_HAL_Linux/Scheduler.cpp Implements The Platform Scheduler) Tj
+/F1 9.5 Tf 1 0 0 1 42 323.00 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 311.50 Tm (Path: `ardupilot/libraries/AP_HAL_Linux/Scheduler.cpp`) Tj
+/F1 9.5 Tf 1 0 0 1 42 300.00 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 288.50 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 283.50 Tm (void Scheduler::init\(\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 274.70 Tm ({) Tj
+/F3 7.3 Tf 1 0 0 1 42 265.90 Tm (    ...) Tj
+/F3 7.3 Tf 1 0 0 1 42 257.10 Tm (    init_realtime\(\);) Tj
+/F3 7.3 Tf 1 0 0 1 42 248.30 Tm (    init_cpu_affinity\(\);) Tj
+/F3 7.3 Tf 1 0 0 1 42 239.50 Tm (    ...) Tj
+/F3 7.3 Tf 1 0 0 1 42 230.70 Tm (    t->thread->start\(t->name, t->policy, t->prio\);) Tj
+/F3 7.3 Tf 1 0 0 1 42 221.90 Tm (}) Tj
+/F1 9.5 Tf 1 0 0 1 42 213.10 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 208.10 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 196.60 Tm (This creates Linux scheduler worker threads for timer, UART, RC input, and IO work.) Tj
+/F1 9.5 Tf 1 0 0 1 42 185.10 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 173.60 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 168.60 Tm (void Scheduler::set_system_initialized\(\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 159.80 Tm ({) Tj
+/F3 7.3 Tf 1 0 0 1 42 151.00 Tm (    if \(_initialized\) {) Tj
+/F3 7.3 Tf 1 0 0 1 42 142.20 Tm (        AP_HAL::panic\("PANIC: scheduler::set_system_initialized called more than once"\);) Tj
+/F3 7.3 Tf 1 0 0 1 42 133.40 Tm (    }) Tj
+/F3 7.3 Tf 1 0 0 1 42 124.60 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 113.10 Tm (    _initialized = true;) Tj
+/F3 7.3 Tf 1 0 0 1 42 104.30 Tm (    _wait_all_threads\(\);) Tj
+/F3 7.3 Tf 1 0 0 1 42 95.50 Tm (}) Tj
+/F1 9.5 Tf 1 0 0 1 42 86.70 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 81.70 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 70.20 Tm (This marks the platform scheduler initialized and waits for worker threads to ) Tj
+/F1 9.5 Tf 1 0 0 1 42 58.70 Tm (synchronize.) Tj
+/F1 9.5 Tf 1 0 0 1 42 47.20 Tm () Tj
+ET
+endstream
+endobj
+11 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents 10 0 R >>
+endobj
+12 0 obj
+<< /Length 5260 >>
+stream
+BT
+/F1 9.5 Tf 1 0 0 1 42 800.00 Tm () Tj
+/F2 12 Tf 1 0 0 1 42 796.00 Tm (Runtime Call Chain) Tj
+/F1 9.5 Tf 1 0 0 1 42 780.00 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 768.50 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 763.50 Tm (Rover.cpp) Tj
+/F3 7.3 Tf 1 0 0 1 42 754.70 Tm (  AP_HAL_MAIN_CALLBACKS\(&rover\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 745.90 Tm (    -> generated main\(\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 737.10 Tm (      -> hal.run\(argc, argv, &rover\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 728.30 Tm (        -> HAL_Linux::run\(...\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 719.50 Tm (          -> scheduler->init\(\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 710.70 Tm (             -> Linux::Scheduler::init\(\) in AP_HAL_Linux/Scheduler.cpp) Tj
+/F3 7.3 Tf 1 0 0 1 42 701.90 Tm (          -> scheduler->set_system_initialized\(\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 693.10 Tm (             -> Linux::Scheduler::set_system_initialized\(\) in AP_HAL_Linux/Scheduler.cpp) Tj
+/F3 7.3 Tf 1 0 0 1 42 684.30 Tm (          -> rover.setup\(\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 675.50 Tm (          -> loop forever:) Tj
+/F3 7.3 Tf 1 0 0 1 42 666.70 Tm (               callbacks->loop\(\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 657.90 Tm (                 -> AP_Vehicle::loop\(\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 649.10 Tm (                   -> AP_Scheduler::loop\(\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 640.30 Tm (                     -> Rover::scheduler_tasks[]) Tj
+/F1 9.5 Tf 1 0 0 1 42 631.50 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 626.50 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 615.00 Tm () Tj
+/F2 12 Tf 1 0 0 1 42 611.00 Tm (Mermaid Class Diagram) Tj
+/F1 9.5 Tf 1 0 0 1 42 595.00 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 583.50 Tm (This diagram shows the important ownership, inheritance, and callback relationships. ) Tj
+/F1 9.5 Tf 1 0 0 1 42 572.00 Tm (It separates the platform scheduler \(`Linux::Scheduler`\) from the vehicle task ) Tj
+/F1 9.5 Tf 1 0 0 1 42 560.50 Tm (scheduler \(`AP_Scheduler`\).) Tj
+/F1 9.5 Tf 1 0 0 1 42 549.00 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 537.50 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 532.50 Tm (classDiagram) Tj
+/F3 7.3 Tf 1 0 0 1 42 523.70 Tm (    direction LR) Tj
+/F3 7.3 Tf 1 0 0 1 42 514.90 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 503.40 Tm (    class HALCallbacks {) Tj
+/F3 7.3 Tf 1 0 0 1 42 494.60 Tm (        <<interface>>) Tj
+/F3 7.3 Tf 1 0 0 1 42 485.80 Tm (        file: libraries/AP_HAL/HAL.h) Tj
+/F3 7.3 Tf 1 0 0 1 42 477.00 Tm (        +setup\(\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 468.20 Tm (        +loop\(\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 459.40 Tm (    }) Tj
+/F3 7.3 Tf 1 0 0 1 42 450.60 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 439.10 Tm (    class AP_Vehicle {) Tj
+/F3 7.3 Tf 1 0 0 1 42 430.30 Tm (        file: libraries/AP_Vehicle/AP_Vehicle.h) Tj
+/F3 7.3 Tf 1 0 0 1 42 421.50 Tm (        implementation: libraries/AP_Vehicle/AP_Vehicle.cpp) Tj
+/F3 7.3 Tf 1 0 0 1 42 412.70 Tm (        +setup\(\) final) Tj
+/F3 7.3 Tf 1 0 0 1 42 403.90 Tm (        +loop\(\) final) Tj
+/F3 7.3 Tf 1 0 0 1 42 395.10 Tm (        #scheduler AP_Scheduler) Tj
+/F3 7.3 Tf 1 0 0 1 42 386.30 Tm (        +get_scheduler_tasks\(\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 377.50 Tm (    }) Tj
+/F3 7.3 Tf 1 0 0 1 42 368.70 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 357.20 Tm (    class Rover {) Tj
+/F3 7.3 Tf 1 0 0 1 42 348.40 Tm (        file: Rover/Rover.h) Tj
+/F3 7.3 Tf 1 0 0 1 42 339.60 Tm (        task table: Rover/Rover.cpp) Tj
+/F3 7.3 Tf 1 0 0 1 42 330.80 Tm (        +scheduler_tasks[] Task) Tj
+/F3 7.3 Tf 1 0 0 1 42 322.00 Tm (        +get_scheduler_tasks\(\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 313.20 Tm (        +read_radio\(\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 304.40 Tm (        +ahrs_update\(\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 295.60 Tm (        +set_servos\(\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 286.80 Tm (    }) Tj
+/F3 7.3 Tf 1 0 0 1 42 278.00 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 266.50 Tm (    class AP_HAL_HAL {) Tj
+/F3 7.3 Tf 1 0 0 1 42 257.70 Tm (        file: libraries/AP_HAL/HAL.h) Tj
+/F3 7.3 Tf 1 0 0 1 42 248.90 Tm (        +scheduler AP_HAL_Scheduler*) Tj
+/F3 7.3 Tf 1 0 0 1 42 240.10 Tm (        +run\(argc, argv, callbacks\)*) Tj
+/F3 7.3 Tf 1 0 0 1 42 231.30 Tm (    }) Tj
+/F3 7.3 Tf 1 0 0 1 42 222.50 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 211.00 Tm (    class HAL_Linux {) Tj
+/F3 7.3 Tf 1 0 0 1 42 202.20 Tm (        file: libraries/AP_HAL_Linux/HAL_Linux_Class.h) Tj
+/F3 7.3 Tf 1 0 0 1 42 193.40 Tm (        implementation: libraries/AP_HAL_Linux/HAL_Linux_Class.cpp) Tj
+/F3 7.3 Tf 1 0 0 1 42 184.60 Tm (        -schedulerInstance Linux_Scheduler) Tj
+/F3 7.3 Tf 1 0 0 1 42 175.80 Tm (        +run\(argc, argv, callbacks\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 167.00 Tm (    }) Tj
+/F3 7.3 Tf 1 0 0 1 42 158.20 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 146.70 Tm (    class AP_HAL_Scheduler {) Tj
+/F3 7.3 Tf 1 0 0 1 42 137.90 Tm (        <<interface>>) Tj
+/F3 7.3 Tf 1 0 0 1 42 129.10 Tm (        file: libraries/AP_HAL/Scheduler.h) Tj
+/F3 7.3 Tf 1 0 0 1 42 120.30 Tm (        +init\(\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 111.50 Tm (        +delay\(ms\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 102.70 Tm (        +delay_microseconds\(us\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 93.90 Tm (        +register_timer_process\(proc\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 85.10 Tm (        +register_io_process\(proc\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 76.30 Tm (        +set_system_initialized\(\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 67.50 Tm (    }) Tj
+/F3 7.3 Tf 1 0 0 1 42 58.70 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 47.20 Tm (    class Linux_Scheduler {) Tj
+ET
+endstream
+endobj
+13 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents 12 0 R >>
+endobj
+14 0 obj
+<< /Length 5246 >>
+stream
+BT
+/F3 7.3 Tf 1 0 0 1 42 800.00 Tm (        file: libraries/AP_HAL_Linux/Scheduler.h) Tj
+/F3 7.3 Tf 1 0 0 1 42 791.20 Tm (        implementation: libraries/AP_HAL_Linux/Scheduler.cpp) Tj
+/F3 7.3 Tf 1 0 0 1 42 782.40 Tm (        +init\(\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 773.60 Tm (        +delay\(ms\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 764.80 Tm (        +delay_microseconds\(us\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 756.00 Tm (        +register_timer_process\(proc\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 747.20 Tm (        +register_io_process\(proc\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 738.40 Tm (        +set_system_initialized\(\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 729.60 Tm (    }) Tj
+/F3 7.3 Tf 1 0 0 1 42 720.80 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 709.30 Tm (    class AP_Scheduler {) Tj
+/F3 7.3 Tf 1 0 0 1 42 700.50 Tm (        file: libraries/AP_Scheduler/AP_Scheduler.h) Tj
+/F3 7.3 Tf 1 0 0 1 42 691.70 Tm (        implementation: libraries/AP_Scheduler/AP_Scheduler.cpp) Tj
+/F3 7.3 Tf 1 0 0 1 42 682.90 Tm (        +init\(tasks, task_count, log_bit\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 674.10 Tm (        +loop\(\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 665.30 Tm (        +run\(time_available\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 656.50 Tm (        +tick\(\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 647.70 Tm (    }) Tj
+/F3 7.3 Tf 1 0 0 1 42 638.90 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 627.40 Tm (    class SchedulerTaskTable {) Tj
+/F3 7.3 Tf 1 0 0 1 42 618.60 Tm (        <<static>>) Tj
+/F3 7.3 Tf 1 0 0 1 42 609.80 Tm (        file: Rover/Rover.cpp) Tj
+/F3 7.3 Tf 1 0 0 1 42 601.00 Tm (        Rover::scheduler_tasks[]) Tj
+/F3 7.3 Tf 1 0 0 1 42 592.20 Tm (    }) Tj
+/F3 7.3 Tf 1 0 0 1 42 583.40 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 571.90 Tm (    HALCallbacks <|-- AP_Vehicle) Tj
+/F3 7.3 Tf 1 0 0 1 42 563.10 Tm (    AP_Vehicle <|-- Rover) Tj
+/F3 7.3 Tf 1 0 0 1 42 554.30 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 542.80 Tm (    AP_HAL_HAL <|-- HAL_Linux) Tj
+/F3 7.3 Tf 1 0 0 1 42 534.00 Tm (    AP_HAL_Scheduler <|-- Linux_Scheduler) Tj
+/F3 7.3 Tf 1 0 0 1 42 525.20 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 513.70 Tm (    HAL_Linux o-- Linux_Scheduler : schedulerInstance) Tj
+/F3 7.3 Tf 1 0 0 1 42 504.90 Tm (    AP_HAL_HAL --> AP_HAL_Scheduler : scheduler pointer) Tj
+/F3 7.3 Tf 1 0 0 1 42 496.10 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 484.60 Tm (    AP_Vehicle *-- AP_Scheduler : vehicle task scheduler) Tj
+/F3 7.3 Tf 1 0 0 1 42 475.80 Tm (    Rover --> SchedulerTaskTable : defines) Tj
+/F3 7.3 Tf 1 0 0 1 42 467.00 Tm (    AP_Scheduler --> SchedulerTaskTable : runs tasks from) Tj
+/F3 7.3 Tf 1 0 0 1 42 458.20 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 446.70 Tm (    HAL_Linux --> HALCallbacks : callbacks->setup\(\)/loop\(\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 437.90 Tm (    HAL_Linux --> AP_HAL_Scheduler : scheduler->init\(\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 429.10 Tm (    HAL_Linux --> AP_HAL_Scheduler : scheduler->set_system_initialized\(\)) Tj
+/F1 9.5 Tf 1 0 0 1 42 420.30 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 415.30 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 403.80 Tm (Read it as:) Tj
+/F1 9.5 Tf 1 0 0 1 42 392.30 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 380.80 Tm (- `Rover` inherits from `AP_Vehicle`.) Tj
+/F1 9.5 Tf 1 0 0 1 42 369.30 Tm (- `AP_Vehicle` implements the `AP_HAL::HAL::Callbacks` interface, including the final ) Tj
+/F1 9.5 Tf 1 0 0 1 42 357.80 Tm (`loop\(\)` method.) Tj
+/F1 9.5 Tf 1 0 0 1 42 346.30 Tm (- `HAL_Linux` inherits from the generic `AP_HAL::HAL`.) Tj
+/F1 9.5 Tf 1 0 0 1 42 334.80 Tm (- `HAL_Linux` owns a `Linux::Scheduler` instance and passes it into the base HAL as ) Tj
+/F1 9.5 Tf 1 0 0 1 42 323.30 Tm (`hal.scheduler`.) Tj
+/F1 9.5 Tf 1 0 0 1 42 311.80 Tm (- `Linux::Scheduler` implements the platform scheduler interface, `AP_HAL::Scheduler`.) Tj
+/F1 9.5 Tf 1 0 0 1 42 300.30 Tm (- `AP_Vehicle` owns or accesses the vehicle-level `AP_Scheduler`.) Tj
+/F1 9.5 Tf 1 0 0 1 42 288.80 Tm (- `Rover.cpp` defines `Rover::scheduler_tasks[]`; `AP_Scheduler::loop\(\)` runs those ) Tj
+/F1 9.5 Tf 1 0 0 1 42 277.30 Tm (tasks.) Tj
+/F1 9.5 Tf 1 0 0 1 42 265.80 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 254.30 Tm (File locations in the diagram are relative to `ardupilot/`.) Tj
+/F1 9.5 Tf 1 0 0 1 42 242.80 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 231.30 Tm () Tj
+/F2 12 Tf 1 0 0 1 42 227.30 Tm (Vehicle Scheduler vs HAL Scheduler) Tj
+/F1 9.5 Tf 1 0 0 1 42 211.30 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 199.80 Tm (There are two scheduler concepts involved:) Tj
+/F1 9.5 Tf 1 0 0 1 42 188.30 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 176.80 Tm () Tj
+/F2 9.5 Tf 1 0 0 1 42 173.80 Tm (AP_Scheduler) Tj
+/F1 9.5 Tf 1 0 0 1 42 162.30 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 150.80 Tm (Defined in `ardupilot/libraries/AP_Scheduler`. This is the vehicle task scheduler. ) Tj
+/F1 9.5 Tf 1 0 0 1 42 139.30 Tm (Rover's task table lives in `Rover.cpp`:) Tj
+/F1 9.5 Tf 1 0 0 1 42 127.80 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 116.30 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 111.30 Tm (const AP_Scheduler::Task Rover::scheduler_tasks[] = {) Tj
+/F3 7.3 Tf 1 0 0 1 42 102.50 Tm (    SCHED_TASK\(read_radio, 50, 200, 3\),) Tj
+/F3 7.3 Tf 1 0 0 1 42 93.70 Tm (    SCHED_TASK\(ahrs_update, 400, 400, 6\),) Tj
+/F3 7.3 Tf 1 0 0 1 42 84.90 Tm (    ...) Tj
+/F3 7.3 Tf 1 0 0 1 42 76.10 Tm (};) Tj
+/F1 9.5 Tf 1 0 0 1 42 67.30 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 62.30 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 50.80 Tm (This decides which Rover tasks run at rates like 400 Hz, 50 Hz, 10 Hz, and 1 Hz.) Tj
+ET
+endstream
+endobj
+15 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents 14 0 R >>
+endobj
+16 0 obj
+<< /Length 4059 >>
+stream
+BT
+/F1 9.5 Tf 1 0 0 1 42 800.00 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 788.50 Tm (The loop that drives this task table is in `AP_Vehicle::loop\(\)`, not in `Rover.cpp`:) Tj
+/F1 9.5 Tf 1 0 0 1 42 777.00 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 765.50 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 760.50 Tm (void AP_Vehicle::loop\(\)) Tj
+/F3 7.3 Tf 1 0 0 1 42 751.70 Tm ({) Tj
+/F3 7.3 Tf 1 0 0 1 42 742.90 Tm (#if AP_SCHEDULER_ENABLED) Tj
+/F3 7.3 Tf 1 0 0 1 42 734.10 Tm (    scheduler.loop\(\);) Tj
+/F3 7.3 Tf 1 0 0 1 42 725.30 Tm (    G_Dt = scheduler.get_loop_period_s\(\);) Tj
+/F3 7.3 Tf 1 0 0 1 42 716.50 Tm (#else) Tj
+/F3 7.3 Tf 1 0 0 1 42 707.70 Tm (    hal.scheduler->delay\(1\);) Tj
+/F3 7.3 Tf 1 0 0 1 42 698.90 Tm (    G_Dt = 0.001;) Tj
+/F3 7.3 Tf 1 0 0 1 42 690.10 Tm (#endif) Tj
+/F3 7.3 Tf 1 0 0 1 42 681.30 Tm (}) Tj
+/F1 9.5 Tf 1 0 0 1 42 672.50 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 667.50 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 656.00 Tm (That `scheduler.loop\(\)` is the `AP_Scheduler` vehicle-task scheduler. It eventually ) Tj
+/F1 9.5 Tf 1 0 0 1 42 644.50 Tm (runs tasks selected from `Rover::scheduler_tasks[]`.) Tj
+/F1 9.5 Tf 1 0 0 1 42 633.00 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 621.50 Tm () Tj
+/F2 9.5 Tf 1 0 0 1 42 618.50 Tm (AP_HAL_Linux::Scheduler) Tj
+/F1 9.5 Tf 1 0 0 1 42 607.00 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 595.50 Tm (Defined in `ardupilot/libraries/AP_HAL_Linux/Scheduler.cpp`. This is the Linux ) Tj
+/F1 9.5 Tf 1 0 0 1 42 584.00 Tm (platform scheduler. It handles Linux threads, delays, timer callbacks, IO callbacks, ) Tj
+/F1 9.5 Tf 1 0 0 1 42 572.50 Tm (failsafe callbacks, and realtime scheduling setup.) Tj
+/F1 9.5 Tf 1 0 0 1 42 561.00 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 549.50 Tm (The two are related but not the same object. Rover's `AP_Scheduler` runs vehicle ) Tj
+/F1 9.5 Tf 1 0 0 1 42 538.00 Tm (tasks. The Linux HAL scheduler provides the platform timing and threading services ) Tj
+/F1 9.5 Tf 1 0 0 1 42 526.50 Tm (underneath it.) Tj
+/F1 9.5 Tf 1 0 0 1 42 515.00 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 503.50 Tm () Tj
+/F2 12 Tf 1 0 0 1 42 499.50 Tm (Direct Uses From Rover Code) Tj
+/F1 9.5 Tf 1 0 0 1 42 483.50 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 472.00 Tm (Rover and common vehicle code can call the HAL scheduler directly through ) Tj
+/F1 9.5 Tf 1 0 0 1 42 460.50 Tm (`hal.scheduler`, for example:) Tj
+/F1 9.5 Tf 1 0 0 1 42 449.00 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 437.50 Tm () Tj
+/F3 7.3 Tf 1 0 0 1 42 432.50 Tm (hal.scheduler->register_timer_failsafe\(failsafe_check_static, 1000\);) Tj
+/F3 7.3 Tf 1 0 0 1 42 423.70 Tm (hal.scheduler->delay\(100\);) Tj
+/F3 7.3 Tf 1 0 0 1 42 414.90 Tm (hal.scheduler->is_system_initialized\(\);) Tj
+/F1 9.5 Tf 1 0 0 1 42 406.10 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 401.10 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 389.60 Tm (On Linux, these calls dispatch to `Linux::Scheduler` methods in ) Tj
+/F1 9.5 Tf 1 0 0 1 42 378.10 Tm (`AP_HAL_Linux/Scheduler.cpp`.) Tj
+/F1 9.5 Tf 1 0 0 1 42 366.60 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 355.10 Tm () Tj
+/F2 12 Tf 1 0 0 1 42 351.10 Tm (Summary) Tj
+/F1 9.5 Tf 1 0 0 1 42 335.10 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 323.60 Tm (`Rover.cpp` links to `AP_HAL_Linux/Scheduler.cpp` through object construction and ) Tj
+/F1 9.5 Tf 1 0 0 1 42 312.10 Tm (virtual calls, not through a direct include. The build selects the Linux HAL, ) Tj
+/F1 9.5 Tf 1 0 0 1 42 300.60 Tm (`AP_HAL::get_HAL\(\)` returns `hal_linux`, `HAL_Linux` installs `Linux::Scheduler` as ) Tj
+/F1 9.5 Tf 1 0 0 1 42 289.10 Tm (`hal.scheduler`, and the generic Rover code reaches Linux scheduler behavior through ) Tj
+/F1 9.5 Tf 1 0 0 1 42 277.60 Tm (`hal.run\(\)` and `hal.scheduler->...` calls.) Tj
+/F1 9.5 Tf 1 0 0 1 42 266.10 Tm () Tj
+/F1 9.5 Tf 1 0 0 1 42 254.60 Tm (There is no separate `Rover::loop\(\)` in `Rover.cpp`. The generated `main\(\)` passes ) Tj
+/F1 9.5 Tf 1 0 0 1 42 243.10 Tm (`&rover` as an `AP_HAL::HAL::Callbacks` object, `HAL_Linux::run\(\)` calls ) Tj
+/F1 9.5 Tf 1 0 0 1 42 231.60 Tm (`callbacks->loop\(\)`, and that dispatches to `AP_Vehicle::loop\(\)`. From there, ) Tj
+/F1 9.5 Tf 1 0 0 1 42 220.10 Tm (`AP_Scheduler::loop\(\)` runs Rover's task table.) Tj
+ET
+endstream
+endobj
+17 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents 16 0 R >>
+endobj
+xref
+0 18
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000155 00000 n 
+0000000225 00000 n 
+0000000300 00000 n 
+0000000368 00000 n 
+0000005352 00000 n 
+0000005498 00000 n 
+0000010260 00000 n 
+0000010406 00000 n 
+0000015151 00000 n 
+0000015299 00000 n 
+0000020612 00000 n 
+0000020760 00000 n 
+0000026059 00000 n 
+0000026207 00000 n 
+0000030319 00000 n 
+trailer
+<< /Size 18 /Root 1 0 R >>
+startxref
+30467
+%%EOF
