@@ -691,7 +691,142 @@ log_bit = MASK_LOG_PM;
 
 That is how `AP_Vehicle::setup()` gives `AP_Scheduler` Rover's task table.
 
-## 11. Linux::Scheduler's Job
+## 11. Sensor Initialization And Sensor Update Tasks
+
+Sensor setup happens during the startup path, not in the scheduled task table itself.
+
+The high-level path is:
+
+```text
+HAL_Linux::run()
+  -> callbacks->setup()
+    -> AP_Vehicle::setup()
+      -> common setup
+      -> init_ardupilot()
+        -> Rover::init_ardupilot()
+          -> Rover sensor setup
+```
+
+After setup completes, periodic sensor work is handled by `AP_Scheduler` through `Rover::scheduler_tasks[]`.
+
+### Common Sensor-Related Setup
+
+Path: `libraries/AP_Vehicle/AP_Vehicle.cpp`
+
+Some sensor-related initialization is common across vehicles and happens in `AP_Vehicle::setup()`:
+
+| No. | Function | Purpose |
+| ---: | --- | --- |
+| 1 | `externalAHRS.init()` | Initializes external AHRS before vehicle-specific init when enabled. |
+| 2 | `airspeed.init()` | Initializes airspeed sensor support after `init_ardupilot()` when enabled. |
+| 3 | `airspeed.calibrate(true)` | Calibrates airspeed when enabled and present. |
+| 4 | `gyro_fft.init(...)` | Initializes gyro FFT late, after scheduler loop rate is known. |
+| 5 | `visual_odom.init()` | Initializes visual odometry when enabled. |
+| 6 | `temperature_sensor.init()` | Initializes temperature sensor support when enabled. |
+| 7 | `rpm_sensor.init()` | Initializes RPM sensor support when enabled. |
+
+### Rover-Specific Sensor Setup
+
+Path: `Rover/system.cpp`
+
+Most Rover sensor setup happens in:
+
+```cpp
+void Rover::init_ardupilot()
+```
+
+Important sensor-related setup steps include:
+
+| No. | Function | Sensor/System |
+| ---: | --- | --- |
+| 1 | `battery.init()` | Battery monitor |
+| 2 | `rssi.init()` | RSSI, if enabled |
+| 3 | `g2.windvane.init(serial_manager)` | Wind vane |
+| 4 | `barometer.init()` | Barometer |
+| 5 | `AP::compass().init()` | Compass |
+| 6 | `rangefinder.init(ROTATION_NONE)` | Rangefinder, if enabled |
+| 7 | `g2.proximity.init()` | Proximity sensor, if enabled |
+| 8 | `g2.beacon.init()` | Beacon/non-GPS positioning, if enabled |
+| 9 | `barometer.calibrate()` | Barometer calibration for EKF |
+| 10 | `gps.init()` | GPS |
+| 11 | `ins.set_log_raw_bit(...)` | Raw IMU logging setup |
+| 12 | `g2.wheel_encoder.init()` | Wheel encoders |
+| 13 | `optflow.init(...)` | Optical flow, if enabled |
+| 14 | `startup_INS()` | AHRS and inertial sensor initialization |
+
+### INS And AHRS Setup
+
+Path: `Rover/system.cpp`
+
+```cpp
+void Rover::startup_INS(void)
+{
+    GCS_SEND_TEXT(MAV_SEVERITY_INFO, "Beginning INS calibration. Do not move vehicle");
+    hal.scheduler->delay(100);
+
+    ahrs.init();
+    ahrs.set_fly_forward(true);
+    ahrs.set_vehicle_class(AP_AHRS::VehicleClass::GROUND);
+
+    ins.init(scheduler.get_loop_rate_hz());
+    ahrs.reset();
+}
+```
+
+The INS/AHRS setup sequence is:
+
+```text
+startup_INS()
+  -> warn user not to move vehicle
+  -> hal.scheduler->delay(100)
+  -> ahrs.init()
+  -> configure AHRS for ground vehicle behavior
+  -> ins.init(scheduler.get_loop_rate_hz())
+  -> ahrs.reset()
+```
+
+Notice the two scheduler layers here:
+
+```text
+hal.scheduler->delay(100)
+  uses the HAL/platform scheduler, Linux::Scheduler on Linux.
+
+scheduler.get_loop_rate_hz()
+  uses the vehicle scheduler, AP_Scheduler.
+```
+
+### Periodic Sensor Update Tasks
+
+After setup, periodic sensor-related work is run from `Rover::scheduler_tasks[]` by `AP_Scheduler`.
+
+Examples:
+
+| Task | Rate Hz | Sensor/System |
+| --- | ---: | --- |
+| `ahrs_update` | 400 | AHRS/EKF update path |
+| `AP_InertialSensor::periodic` | 400 | IMU periodic work |
+| `AP_GPS::update` | 50 | GPS |
+| `AP_Baro::update` | 10 | Barometer |
+| `update_compass` | 10 | Compass |
+| `read_rangefinders` | 50 | Rangefinders, if enabled |
+| `AP_OpticalFlow::update` | 200 | Optical flow, if enabled |
+| `AP_Proximity::update` | 50 | Proximity, if enabled |
+| `AP_Beacon::update` | 50 | Beacon, if enabled |
+| `AP_WindVane::update` | 20 | Wind vane |
+| `update_wheel_encoder` | 50 | Wheel encoders |
+| `AP_BattMonitor::read` | 10 | Battery monitor |
+
+So:
+
+```text
+Sensor initialization
+  happens once in AP_Vehicle::setup() and Rover::init_ardupilot().
+
+Sensor updates
+  happen repeatedly through AP_Scheduler and Rover::scheduler_tasks[].
+```
+
+## 12. Linux::Scheduler's Job
 
 Path: `libraries/AP_HAL_Linux/Scheduler.cpp`
 
@@ -730,7 +865,7 @@ Linux::Scheduler schedules/services HAL platform work.
 It does not choose read_radio(), ahrs_update(), or set_servos().
 ```
 
-## 12. Runtime Call Chain
+## 13. Runtime Call Chain
 
 ```text
 Rover.cpp
@@ -755,7 +890,7 @@ Rover.cpp
                        -> tasks from Rover::scheduler_tasks[]
 ```
 
-## 13. Mermaid Class Diagram
+## 14. Mermaid Class Diagram
 
 File paths are relative to `ardupilot/`.
 
@@ -877,7 +1012,7 @@ classDiagram
     HAL_Linux --> AP_HAL_Scheduler : starts platform scheduler
 ```
 
-## 14. Two Schedulers Compared
+## 15. Two Schedulers Compared
 
 | Question | AP_Scheduler | Linux::Scheduler |
 | --- | --- | --- |
@@ -890,7 +1025,7 @@ classDiagram
 | Handles timer, UART, RC input, IO platform threads? | No | Yes |
 | Started by | `AP_Vehicle::setup()` initializes it; `AP_Vehicle::loop()` runs it | `HAL_Linux::run()` calls `scheduler->init()` |
 
-## 15. Summary
+## 16. Summary
 
 ```text
 setup()/loop()
