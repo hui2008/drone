@@ -38,6 +38,11 @@ callbacks == &rover
 AP_Vehicle::loop()
   calls AP_Scheduler::loop()
   AP_Scheduler runs Rover::scheduler_tasks[]
+
+AP_Vehicle owns AP_Scheduler
+  AP_Vehicle has an AP_Scheduler scheduler member
+  AP_Scheduler constructor sets the AP_Scheduler singleton
+  AP::scheduler() returns that same scheduler object
 ```
 
 The key correction:
@@ -58,6 +63,7 @@ Paths are relative to `ardupilot/`.
 | Rover object, task table, HAL main macro | `Rover/Rover.cpp` |
 | Common vehicle callback implementation | `libraries/AP_Vehicle/AP_Vehicle.h`, `libraries/AP_Vehicle/AP_Vehicle.cpp` |
 | Vehicle task scheduler | `libraries/AP_Scheduler/AP_Scheduler.h`, `libraries/AP_Scheduler/AP_Scheduler.cpp` |
+| Vehicle scheduler singleton accessor | `libraries/AP_Scheduler/AP_Scheduler.h`, `libraries/AP_Scheduler/AP_Scheduler.cpp` |
 | Generic HAL and callback interface | `libraries/AP_HAL/HAL.h` |
 | HAL main macros | `libraries/AP_HAL/AP_HAL_Main.h` |
 | Linux HAL object and `run()` | `libraries/AP_HAL_Linux/HAL_Linux_Class.h`, `libraries/AP_HAL_Linux/HAL_Linux_Class.cpp` |
@@ -416,7 +422,83 @@ So:
 hal.scheduler -> Linux::Scheduler schedulerInstance
 ```
 
-## 8. Where The Loops Are
+## 8. How AP_Vehicle Gets AP_Scheduler
+
+`AP_Vehicle` gets `AP_Scheduler` by owning it as a normal C++ member.
+
+Path: `libraries/AP_Vehicle/AP_Vehicle.h`
+
+```cpp
+#if AP_SCHEDULER_ENABLED
+    // main loop scheduler
+    AP_Scheduler scheduler;
+#endif
+```
+
+Because Rover inherits from `AP_Vehicle`, the global `Rover rover` object contains the `AP_Vehicle` base object and therefore contains this `scheduler` member.
+
+The global-style call `AP::scheduler()` does not create a different scheduler. It returns the singleton pointer set by the `AP_Scheduler` constructor.
+
+Path: `libraries/AP_Scheduler/AP_Scheduler.cpp`
+
+```cpp
+AP_Scheduler::AP_Scheduler()
+{
+    if (_singleton) {
+        ...
+        return;
+    }
+    _singleton = this;
+
+    AP_Param::setup_object_defaults(this, var_info);
+}
+```
+
+The accessor is:
+
+```cpp
+namespace AP {
+
+AP_Scheduler &scheduler()
+{
+    return *AP_Scheduler::get_singleton();
+}
+
+};
+```
+
+So this setup code:
+
+```cpp
+AP::scheduler().init(tasks, task_count, log_bit);
+```
+
+is initializing the scheduler member inside the vehicle object. In simplified form:
+
+```text
+global Rover rover is constructed
+  -> AP_Vehicle base is constructed
+  -> AP_Vehicle::scheduler member is constructed
+  -> AP_Scheduler::AP_Scheduler()
+     -> AP_Scheduler::_singleton = this
+
+AP_Vehicle::setup()
+  -> Rover::get_scheduler_tasks(...)
+  -> AP::scheduler().init(...)
+     -> returns the AP_Vehicle::scheduler member
+     -> stores Rover::scheduler_tasks[] in AP_Scheduler
+```
+
+Inside `AP_Scheduler::init()`, the vehicle task table is stored:
+
+```cpp
+_vehicle_tasks = tasks;
+_num_vehicle_tasks = num_tasks;
+```
+
+That is the handoff from Rover's static task table to the live scheduler object owned by `AP_Vehicle`.
+
+## 9. Where The Loops Are
 
 ### HAL_Linux::run Is The Outer Platform Loop
 
@@ -477,7 +559,7 @@ void AP_Scheduler::loop()
 
 `run(time_available)` runs due tasks from the configured vehicle task table.
 
-## 9. Rover's Task Table
+## 10. Rover's Task Table
 
 Path: `Rover/Rover.cpp`
 
@@ -544,7 +626,7 @@ The task table in `Rover.cpp` contains these entries. Some entries are only comp
 | 36 | `cruise_learn_update` | 50 | 200 | 126 | always |
 | 37 | `afs_fs_check` | 10 | 200 | 129 | `AP_ROVER_ADVANCED_FAILSAFE_ENABLED` |
 
-## 10. Init And Setup Functions
+## 11. Init And Setup Functions
 
 Startup is split across common vehicle setup and Rover-specific initialization.
 
@@ -691,7 +773,7 @@ log_bit = MASK_LOG_PM;
 
 That is how `AP_Vehicle::setup()` gives `AP_Scheduler` Rover's task table.
 
-## 11. Sensor Initialization And Sensor Update Tasks
+## 12. Sensor Initialization And Sensor Update Tasks
 
 Sensor setup happens during the startup path, not in the scheduled task table itself.
 
@@ -826,7 +908,7 @@ Sensor updates
   happen repeatedly through AP_Scheduler and Rover::scheduler_tasks[].
 ```
 
-## 12. Linux::Scheduler's Job
+## 13. Linux::Scheduler's Job
 
 Path: `libraries/AP_HAL_Linux/Scheduler.cpp`
 
@@ -865,7 +947,7 @@ Linux::Scheduler schedules/services HAL platform work.
 It does not choose read_radio(), ahrs_update(), or set_servos().
 ```
 
-## 13. Runtime Call Chain
+## 14. Runtime Call Chain
 
 ```text
 Rover.cpp
@@ -881,6 +963,8 @@ Rover.cpp
              -> Linux::Scheduler::set_system_initialized()
           -> callbacks->setup()
              -> AP_Vehicle::setup() on the rover object
+             -> AP::scheduler().init(...)
+                initializes AP_Vehicle::scheduler
              -> Rover-specific init through virtual hooks
           -> loop forever:
                callbacks->loop()
@@ -890,7 +974,7 @@ Rover.cpp
                        -> tasks from Rover::scheduler_tasks[]
 ```
 
-## 14. Mermaid Class Diagram
+## 15. Mermaid Class Diagram
 
 File paths are relative to `ardupilot/`.
 
@@ -926,12 +1010,6 @@ classDiagram
         task table: Rover/Rover.cpp
         +scheduler_tasks[] Task
         +get_scheduler_tasks()
-    }
-
-    class Replay {
-        file: Tools/Replay/Replay.h
-        +setup()
-        +loop()
     }
 
     class AP_HAL_HAL {
@@ -972,10 +1050,18 @@ classDiagram
     class AP_Scheduler {
         file: libraries/AP_Scheduler/AP_Scheduler.h
         implementation: libraries/AP_Scheduler/AP_Scheduler.cpp
+        singleton: AP_Scheduler::_singleton
         +init(tasks, task_count, log_bit)
         +loop()
         +run(time_available)
         +tick()
+        +get_singleton()
+    }
+
+    class APNamespaceScheduler {
+        <<namespace function>>
+        file: libraries/AP_Scheduler/AP_Scheduler.cpp
+        +scheduler() returns AP_Scheduler reference
     }
 
     class SchedulerTaskTable {
@@ -993,7 +1079,6 @@ classDiagram
 
     HALCallbacks <|-- FunCallbacks
     HALCallbacks <|-- AP_Vehicle
-    HALCallbacks <|-- Replay
     AP_Vehicle <|-- Rover
 
     AP_HAL_HAL <|-- HAL_Linux
@@ -1002,7 +1087,8 @@ classDiagram
     HAL_Linux o-- Linux_Scheduler : owns schedulerInstance
     AP_HAL_HAL --> AP_HAL_Scheduler : hal.scheduler
 
-    AP_Vehicle *-- AP_Scheduler : vehicle scheduler
+    AP_Vehicle *-- AP_Scheduler : owns scheduler member
+    APNamespaceScheduler --> AP_Scheduler : returns singleton
     Rover --> SchedulerTaskTable : defines
     AP_Scheduler --> SchedulerTaskTable : schedules/runs
 
@@ -1012,7 +1098,7 @@ classDiagram
     HAL_Linux --> AP_HAL_Scheduler : starts platform scheduler
 ```
 
-## 15. Two Schedulers Compared
+## 16. Two Schedulers Compared
 
 | Question | AP_Scheduler | Linux::Scheduler |
 | --- | --- | --- |
@@ -1020,12 +1106,13 @@ classDiagram
 | Main files | `libraries/AP_Scheduler/*` | `libraries/AP_HAL_Linux/Scheduler.*` |
 | Main loop | `AP_Scheduler::loop()` | Linux worker threads plus HAL scheduler methods |
 | Uses `Rover::scheduler_tasks[]`? | Yes | No |
+| Who owns it? | `AP_Vehicle` owns an `AP_Scheduler scheduler` member | `HAL_Linux` owns `Linux::Scheduler schedulerInstance` |
 | Runs `read_radio()`, `ahrs_update()`, `set_servos()`? | Yes | No |
 | Handles `hal.scheduler->delay()`? | No | Yes |
 | Handles timer, UART, RC input, IO platform threads? | No | Yes |
 | Started by | `AP_Vehicle::setup()` initializes it; `AP_Vehicle::loop()` runs it | `HAL_Linux::run()` calls `scheduler->init()` |
 
-## 16. Summary
+## 17. Summary
 
 ```text
 setup()/loop()
@@ -1046,6 +1133,8 @@ AP_Vehicle::loop()
   calls AP_Scheduler::loop()
 
 AP_Scheduler
+  is owned by AP_Vehicle as the scheduler member
+  is also available through AP::scheduler()
   schedules and runs Rover::scheduler_tasks[]
 
 Linux::Scheduler
