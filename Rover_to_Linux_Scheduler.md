@@ -11,8 +11,8 @@ This document explains how Rover starts, how the callback object reaches the Lin
 | [1. Big Picture](#1-big-picture) | High-level Rover to HAL to scheduler flow. |
 | [2. Runtime Call Chain](#2-runtime-call-chain) | End-to-end runtime call path. |
 | [3. Execution Lifecycle: setup() / loop()](#3-execution-lifecycle-setup--loop) | Why ArduPilot keeps the common lifecycle pattern. |
-| [4. Callback Wiring and Implementations](#4-callback-wiring-and-implementations) | Callback interface, HAL main macros, implementations, and Rover's callback object. |
-| [5. Scheduler Wiring and Execution](#5-scheduler-wiring-and-execution) | Vehicle scheduler vs platform scheduler, Linux initialization, loop locations, and comparison. |
+| [4. Callback Dispatch and Implementations](#4-callback-dispatch-and-implementations) | Callback interface, HAL main macros, implementations, and Rover's callback object. |
+| [5. Scheduler Ownership and Execution](#5-scheduler-ownership-and-execution) | Vehicle scheduler vs platform scheduler, Linux initialization, loop locations, and comparison. |
 | [6. Rover Task Table](#6-rover-task-table) | `Rover::scheduler_tasks[]` and the numbered task list. |
 | [7. Startup and Setup Functions](#7-startup-and-setup-functions) | Common `AP_Vehicle::setup()`, Rover `init_ardupilot()`, and scheduler hooks. |
 | [8. Sensor Setup and Update Tasks](#8-sensor-setup-and-update-tasks) | Sensor initialization path and periodic sensor update tasks. |
@@ -25,38 +25,43 @@ This document explains how Rover starts, how the callback object reaches the Lin
 
 `Rover.cpp` does not directly include or call `AP_HAL_Linux/Scheduler.cpp`.
 
-The connection is indirect:
+The code path is indirect:
 
 ```text
-Rover.cpp
+Rover application object
   defines global Rover rover
   passes &rover to AP_HAL_MAIN_CALLBACKS()
 
-AP_HAL_MAIN_CALLBACKS(&rover)
+Generated entry point
+  AP_HAL_MAIN_CALLBACKS(&rover)
   generates main()
   calls hal.run(argc, argv, &rover)
 
-Linux build
+Linux HAL object ownership
+  hal is AP_HAL::get_HAL()
   AP_HAL::get_HAL() returns global HAL_Linux hal_linux
   HAL_Linux owns Linux::Scheduler schedulerInstance
   HAL_Linux passes &schedulerInstance into AP_HAL::HAL
   AP_HAL::HAL stores it as hal.scheduler
 
-HAL_Linux::run()
+Linux HAL runtime
+  HAL_Linux::run()
   starts Linux::Scheduler through hal.scheduler
   calls callbacks->setup()
   repeatedly calls callbacks->loop()
 
-callbacks == &rover
+Rover callback dispatch
+  callbacks == &rover
   Rover inherits AP_Vehicle
   AP_Vehicle implements AP_HAL::HAL::Callbacks
   callbacks->loop() calls AP_Vehicle::loop()
 
-AP_Vehicle::loop()
+Vehicle scheduler dispatch
+  AP_Vehicle::loop()
   calls AP_Scheduler::loop()
   AP_Scheduler runs Rover::scheduler_tasks[]
 
-AP_Vehicle owns AP_Scheduler
+Vehicle scheduler ownership
   AP_Vehicle has an AP_Scheduler scheduler member
   AP_Scheduler constructor sets the AP_Scheduler singleton
   AP::scheduler() returns that same scheduler object
@@ -146,7 +151,7 @@ AP_Vehicle::loop()
 
 `AP_Vehicle::loop()` is `final`, so Rover, Plane, Copter, Sub, Blimp, and Tracker do not each invent a different main loop. Vehicle-specific behavior is added through task tables and virtual hooks.
 
-## 4. Callback Wiring and Implementations
+## 4. Callback Dispatch and Implementations
 
 The callback path has three pieces:
 
@@ -403,7 +408,7 @@ callbacks->loop()
 
 Rover-specific behavior is reached from inside those inherited `AP_Vehicle` methods through virtual hooks and Rover's task table.
 
-## 5. Scheduler Wiring and Execution
+## 5. Scheduler Ownership and Execution
 
 ArduPilot uses two different scheduler layers in this path:
 
