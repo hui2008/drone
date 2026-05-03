@@ -9,17 +9,17 @@ This document explains how Rover starts, how the callback object reaches the Lin
 | Section | Contents |
 | --- | --- |
 | [1. Big Picture](#1-big-picture) | High-level Rover to HAL to scheduler flow. |
-| [2. Source File Map](#2-source-file-map) | Relevant files and core terms. |
-| [3. The setup() / loop() Lifecycle](#3-the-setup--loop-lifecycle) | Why ArduPilot keeps the common lifecycle pattern. |
-| [4. Callback Wiring and Implementations](#4-callback-wiring-and-implementations) | Callback interface, HAL main macros, implementations, and Rover's callback object. |
-| [5. Scheduler Wiring and Execution](#5-scheduler-wiring-and-execution) | Vehicle scheduler vs platform scheduler, Linux initialization, loop locations, and comparison. |
-| [6. Rover Task Table](#6-rover-task-table) | `Rover::scheduler_tasks[]` and the numbered task list. |
-| [7. Startup and Setup Functions](#7-startup-and-setup-functions) | Common `AP_Vehicle::setup()`, Rover `init_ardupilot()`, and scheduler hooks. |
-| [8. Sensor Setup and Update Tasks](#8-sensor-setup-and-update-tasks) | Sensor initialization path and periodic sensor update tasks. |
-| [9. Runtime Call Chain](#9-runtime-call-chain) | End-to-end runtime call path. |
-| [10. Mermaid Class Diagram](#10-mermaid-class-diagram) | Class and ownership relations with file paths. |
-| [11. Summary](#11-summary) | Condensed summary of the document. |
-| [Appendix A. Abbreviations](#appendix-a-abbreviations) | Alphabetical abbreviation glossary. |
+| [2. The setup() / loop() Lifecycle](#2-the-setup--loop-lifecycle) | Why ArduPilot keeps the common lifecycle pattern. |
+| [3. Callback Wiring and Implementations](#3-callback-wiring-and-implementations) | Callback interface, HAL main macros, implementations, and Rover's callback object. |
+| [4. Scheduler Wiring and Execution](#4-scheduler-wiring-and-execution) | Vehicle scheduler vs platform scheduler, Linux initialization, loop locations, and comparison. |
+| [5. Rover Task Table](#5-rover-task-table) | `Rover::scheduler_tasks[]` and the numbered task list. |
+| [6. Startup and Setup Functions](#6-startup-and-setup-functions) | Common `AP_Vehicle::setup()`, Rover `init_ardupilot()`, and scheduler hooks. |
+| [7. Sensor Setup and Update Tasks](#7-sensor-setup-and-update-tasks) | Sensor initialization path and periodic sensor update tasks. |
+| [8. Runtime Call Chain](#8-runtime-call-chain) | End-to-end runtime call path. |
+| [9. Mermaid Class Diagram](#9-mermaid-class-diagram) | Class and ownership relations with file paths. |
+| [10. Summary](#10-summary) | Condensed summary of the document. |
+| [Appendix A. Source File Map](#appendix-a-source-file-map) | Relevant files and core terms. |
+| [Appendix B. Abbreviations](#appendix-b-abbreviations) | Alphabetical abbreviation glossary. |
 
 ## 1. Big Picture
 
@@ -70,35 +70,7 @@ AP_Scheduler schedules Rover::scheduler_tasks[].
 Linux::Scheduler provides HAL/platform timing, threads, delays, IO, UART, RC input, and timer callback services.
 ```
 
-## 2. Source File Map
-
-Paths are relative to `ardupilot/`.
-
-### Files
-
-| Concept | File |
-| --- | --- |
-| Rover class | `Rover/Rover.h` |
-| Rover object, task table, HAL main macro | `Rover/Rover.cpp` |
-| Common vehicle callback implementation | `libraries/AP_Vehicle/AP_Vehicle.h`, `libraries/AP_Vehicle/AP_Vehicle.cpp` |
-| Vehicle scheduler and singleton accessor | `libraries/AP_Scheduler/AP_Scheduler.h`, `libraries/AP_Scheduler/AP_Scheduler.cpp` |
-| Generic HAL and callback interface | `libraries/AP_HAL/HAL.h` |
-| HAL main macros | `libraries/AP_HAL/AP_HAL_Main.h` |
-| Linux HAL object and `run()` | `libraries/AP_HAL_Linux/HAL_Linux_Class.h`, `libraries/AP_HAL_Linux/HAL_Linux_Class.cpp` |
-| Generic HAL scheduler interface | `libraries/AP_HAL/Scheduler.h` |
-| Linux platform scheduler | `libraries/AP_HAL_Linux/Scheduler.h`, `libraries/AP_HAL_Linux/Scheduler.cpp` |
-| Replay callback implementation | `Tools/Replay/Replay.h`, `Tools/Replay/Replay.cpp` |
-
-### Terms
-
-| Term | Meaning |
-| --- | --- |
-| Callback object | The object passed to `hal.run(...)`; for Rover this is `&rover`. |
-| Vehicle scheduler | `AP_Scheduler`, owned by `AP_Vehicle`, runs vehicle task tables. |
-| Platform scheduler | `Linux::Scheduler`, owned by `HAL_Linux`, provides HAL timing, delays, threads, and platform callbacks. |
-| Task table | The static `Rover::scheduler_tasks[]` array in `Rover/Rover.cpp`. |
-
-## 3. The setup() / loop() Lifecycle
+## 2. The setup() / loop() Lifecycle
 
 ArduPilot keeps an Arduino-style lifecycle:
 
@@ -147,7 +119,7 @@ AP_Vehicle::loop()
 
 `AP_Vehicle::loop()` is `final`, so Rover, Plane, Copter, Sub, Blimp, and Tracker do not each invent a different main loop. Vehicle-specific behavior is added through task tables and virtual hooks.
 
-## 4. Callback Wiring and Implementations
+## 3. Callback Wiring and Implementations
 
 The callback path has three pieces:
 
@@ -404,7 +376,7 @@ callbacks->loop()
 
 Rover-specific behavior is reached from inside those inherited `AP_Vehicle` methods through virtual hooks and Rover's task table.
 
-## 5. Scheduler Wiring and Execution
+## 4. Scheduler Wiring and Execution
 
 ArduPilot uses two different scheduler layers in this path:
 
@@ -739,7 +711,7 @@ It does not choose read_radio(), ahrs_update(), or set_servos().
 | Handles timer, UART, RC input, IO platform threads? | No | Yes |
 | Started by | `AP_Vehicle::setup()` initializes it; `AP_Vehicle::loop()` runs it | `HAL_Linux::run()` calls `scheduler->init()` |
 
-## 6. Rover Task Table
+## 5. Rover Task Table
 
 Path: `Rover/Rover.cpp`
 
@@ -806,7 +778,7 @@ The task table in `Rover.cpp` contains these entries. Some entries are only comp
 | 36 | `cruise_learn_update` | 50 | 200 | 126 | always |
 | 37 | `afs_fs_check` | 10 | 200 | 129 | `AP_ROVER_ADVANCED_FAILSAFE_ENABLED` |
 
-## 7. Startup and Setup Functions
+## 6. Startup and Setup Functions
 
 Startup is split between common vehicle setup and Rover-specific initialization.
 
@@ -953,7 +925,7 @@ log_bit = MASK_LOG_PM;
 
 This is how `AP_Vehicle::setup()` gives Rover's task table to the vehicle scheduler.
 
-## 8. Sensor Setup and Update Tasks
+## 7. Sensor Setup and Update Tasks
 
 Sensor setup happens during startup. Sensor updates happen later through scheduled tasks.
 
@@ -1088,7 +1060,7 @@ Sensor updates
   happen repeatedly through AP_Scheduler and Rover::scheduler_tasks[].
 ```
 
-## 9. Runtime Call Chain
+## 8. Runtime Call Chain
 
 ```text
 Rover.cpp
@@ -1115,7 +1087,7 @@ Rover.cpp
                        -> tasks from Rover::scheduler_tasks[]
 ```
 
-## 10. Mermaid Class Diagram
+## 9. Mermaid Class Diagram
 
 File paths are relative to `ardupilot/`.
 
@@ -1239,7 +1211,7 @@ classDiagram
     HAL_Linux --> AP_HAL_Scheduler : starts platform scheduler
 ```
 
-## 11. Summary
+## 10. Summary
 
 ```text
 setup()/loop()
@@ -1269,7 +1241,35 @@ Linux::Scheduler
   provides Linux threads, delays, IO, UART, RC input, and timer/failsafe callbacks
 ```
 
-## Appendix A. Abbreviations
+## Appendix A. Source File Map
+
+Paths are relative to `ardupilot/`.
+
+### Files
+
+| Concept | File |
+| --- | --- |
+| Rover class | `Rover/Rover.h` |
+| Rover object, task table, HAL main macro | `Rover/Rover.cpp` |
+| Common vehicle callback implementation | `libraries/AP_Vehicle/AP_Vehicle.h`, `libraries/AP_Vehicle/AP_Vehicle.cpp` |
+| Vehicle scheduler and singleton accessor | `libraries/AP_Scheduler/AP_Scheduler.h`, `libraries/AP_Scheduler/AP_Scheduler.cpp` |
+| Generic HAL and callback interface | `libraries/AP_HAL/HAL.h` |
+| HAL main macros | `libraries/AP_HAL/AP_HAL_Main.h` |
+| Linux HAL object and `run()` | `libraries/AP_HAL_Linux/HAL_Linux_Class.h`, `libraries/AP_HAL_Linux/HAL_Linux_Class.cpp` |
+| Generic HAL scheduler interface | `libraries/AP_HAL/Scheduler.h` |
+| Linux platform scheduler | `libraries/AP_HAL_Linux/Scheduler.h`, `libraries/AP_HAL_Linux/Scheduler.cpp` |
+| Replay callback implementation | `Tools/Replay/Replay.h`, `Tools/Replay/Replay.cpp` |
+
+### Terms
+
+| Term | Meaning |
+| --- | --- |
+| Callback object | The object passed to `hal.run(...)`; for Rover this is `&rover`. |
+| Vehicle scheduler | `AP_Scheduler`, owned by `AP_Vehicle`, runs vehicle task tables. |
+| Platform scheduler | `Linux::Scheduler`, owned by `HAL_Linux`, provides HAL timing, delays, threads, and platform callbacks. |
+| Task table | The static `Rover::scheduler_tasks[]` array in `Rover/Rover.cpp`. |
+
+## Appendix B. Abbreviations
 
 | Abbreviation | Meaning |
 | --- | --- |
