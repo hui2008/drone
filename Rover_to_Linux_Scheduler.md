@@ -9,13 +9,13 @@ This document explains how Rover starts, how the callback object reaches the Lin
 | Section | Contents |
 | --- | --- |
 | [1. Big Picture](#1-big-picture) | High-level Rover to HAL to scheduler flow. |
-| [2. The setup() / loop() Lifecycle](#2-the-setup--loop-lifecycle) | Why ArduPilot keeps the common lifecycle pattern. |
-| [3. Callback Wiring and Implementations](#3-callback-wiring-and-implementations) | Callback interface, HAL main macros, implementations, and Rover's callback object. |
-| [4. Scheduler Wiring and Execution](#4-scheduler-wiring-and-execution) | Vehicle scheduler vs platform scheduler, Linux initialization, loop locations, and comparison. |
-| [5. Rover Task Table](#5-rover-task-table) | `Rover::scheduler_tasks[]` and the numbered task list. |
-| [6. Startup and Setup Functions](#6-startup-and-setup-functions) | Common `AP_Vehicle::setup()`, Rover `init_ardupilot()`, and scheduler hooks. |
-| [7. Sensor Setup and Update Tasks](#7-sensor-setup-and-update-tasks) | Sensor initialization path and periodic sensor update tasks. |
-| [8. Runtime Call Chain](#8-runtime-call-chain) | End-to-end runtime call path. |
+| [2. Runtime Call Chain](#2-runtime-call-chain) | End-to-end runtime call path. |
+| [3. Execution Lifecycle: setup() / loop()](#3-execution-lifecycle-setup--loop) | Why ArduPilot keeps the common lifecycle pattern. |
+| [4. Callback Wiring and Implementations](#4-callback-wiring-and-implementations) | Callback interface, HAL main macros, implementations, and Rover's callback object. |
+| [5. Scheduler Wiring and Execution](#5-scheduler-wiring-and-execution) | Vehicle scheduler vs platform scheduler, Linux initialization, loop locations, and comparison. |
+| [6. Rover Task Table](#6-rover-task-table) | `Rover::scheduler_tasks[]` and the numbered task list. |
+| [7. Startup and Setup Functions](#7-startup-and-setup-functions) | Common `AP_Vehicle::setup()`, Rover `init_ardupilot()`, and scheduler hooks. |
+| [8. Sensor Setup and Update Tasks](#8-sensor-setup-and-update-tasks) | Sensor initialization path and periodic sensor update tasks. |
 | [9. Mermaid Class Diagram](#9-mermaid-class-diagram) | Class and ownership relations with file paths. |
 | [10. Summary](#10-summary) | Condensed summary of the document. |
 | [Appendix A. Source File Map](#appendix-a-source-file-map) | Relevant files and core terms. |
@@ -70,7 +70,34 @@ AP_Scheduler schedules Rover::scheduler_tasks[].
 Linux::Scheduler provides HAL/platform timing, threads, delays, IO, UART, RC input, and timer callback services.
 ```
 
-## 2. The setup() / loop() Lifecycle
+## 2. Runtime Call Chain
+
+```text
+Rover.cpp
+  AP_HAL_MAIN_CALLBACKS(&rover)
+    -> generated main()
+      -> hal.run(argc, argv, &rover)
+         where callbacks == &rover
+        -> HAL_Linux::run(...)
+          -> scheduler->init()
+             -> Linux::Scheduler::init()
+             -> starts Linux timer/uart/rcin/io platform threads
+          -> scheduler->set_system_initialized()
+             -> Linux::Scheduler::set_system_initialized()
+          -> callbacks->setup()
+             -> AP_Vehicle::setup() on the rover object
+             -> AP::scheduler().init(...)
+                initializes AP_Vehicle::scheduler
+             -> Rover-specific init through virtual hooks
+          -> loop forever:
+               callbacks->loop()
+                 -> AP_Vehicle::loop() on the rover object
+                   -> AP_Scheduler::loop()
+                     -> AP_Scheduler::run(time_available)
+                       -> tasks from Rover::scheduler_tasks[]
+```
+
+## 3. Execution Lifecycle: setup() / loop()
 
 ArduPilot keeps an Arduino-style lifecycle:
 
@@ -119,7 +146,7 @@ AP_Vehicle::loop()
 
 `AP_Vehicle::loop()` is `final`, so Rover, Plane, Copter, Sub, Blimp, and Tracker do not each invent a different main loop. Vehicle-specific behavior is added through task tables and virtual hooks.
 
-## 3. Callback Wiring and Implementations
+## 4. Callback Wiring and Implementations
 
 The callback path has three pieces:
 
@@ -376,7 +403,7 @@ callbacks->loop()
 
 Rover-specific behavior is reached from inside those inherited `AP_Vehicle` methods through virtual hooks and Rover's task table.
 
-## 4. Scheduler Wiring and Execution
+## 5. Scheduler Wiring and Execution
 
 ArduPilot uses two different scheduler layers in this path:
 
@@ -711,7 +738,7 @@ It does not choose read_radio(), ahrs_update(), or set_servos().
 | Handles timer, UART, RC input, IO platform threads? | No | Yes |
 | Started by | `AP_Vehicle::setup()` initializes it; `AP_Vehicle::loop()` runs it | `HAL_Linux::run()` calls `scheduler->init()` |
 
-## 5. Rover Task Table
+## 6. Rover Task Table
 
 Path: `Rover/Rover.cpp`
 
@@ -778,7 +805,7 @@ The task table in `Rover.cpp` contains these entries. Some entries are only comp
 | 36 | `cruise_learn_update` | 50 | 200 | 126 | always |
 | 37 | `afs_fs_check` | 10 | 200 | 129 | `AP_ROVER_ADVANCED_FAILSAFE_ENABLED` |
 
-## 6. Startup and Setup Functions
+## 7. Startup and Setup Functions
 
 Startup is split between common vehicle setup and Rover-specific initialization.
 
@@ -925,7 +952,7 @@ log_bit = MASK_LOG_PM;
 
 This is how `AP_Vehicle::setup()` gives Rover's task table to the vehicle scheduler.
 
-## 7. Sensor Setup and Update Tasks
+## 8. Sensor Setup and Update Tasks
 
 Sensor setup happens during startup. Sensor updates happen later through scheduled tasks.
 
@@ -1058,33 +1085,6 @@ Sensor initialization
 
 Sensor updates
   happen repeatedly through AP_Scheduler and Rover::scheduler_tasks[].
-```
-
-## 8. Runtime Call Chain
-
-```text
-Rover.cpp
-  AP_HAL_MAIN_CALLBACKS(&rover)
-    -> generated main()
-      -> hal.run(argc, argv, &rover)
-         where callbacks == &rover
-        -> HAL_Linux::run(...)
-          -> scheduler->init()
-             -> Linux::Scheduler::init()
-             -> starts Linux timer/uart/rcin/io platform threads
-          -> scheduler->set_system_initialized()
-             -> Linux::Scheduler::set_system_initialized()
-          -> callbacks->setup()
-             -> AP_Vehicle::setup() on the rover object
-             -> AP::scheduler().init(...)
-                initializes AP_Vehicle::scheduler
-             -> Rover-specific init through virtual hooks
-          -> loop forever:
-               callbacks->loop()
-                 -> AP_Vehicle::loop() on the rover object
-                   -> AP_Scheduler::loop()
-                     -> AP_Scheduler::run(time_available)
-                       -> tasks from Rover::scheduler_tasks[]
 ```
 
 ## 9. Mermaid Class Diagram
