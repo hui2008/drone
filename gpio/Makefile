@@ -4,19 +4,23 @@ PKG_CONFIG ?= pkg-config
 CFLAGS ?= -Wall -Wextra -Wpedantic
 LDLIBS += $(shell $(PKG_CONFIG) --libs libgpiod)
 
-TARGET := led
+BUILD := build
+TARGET := $(BUILD)/led
 SRCS := main.c
-OBJS := $(SRCS:.c=.o)
+OBJS := $(addprefix $(BUILD)/,$(SRCS:.c=.o))
 
 .PHONY: all clean
 
 all: $(TARGET)
 
-$(TARGET): $(OBJS)
+$(BUILD):
+	mkdir -p $(BUILD)
+
+$(TARGET): $(OBJS) | $(BUILD)
 	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-%.o: %.c
+$(BUILD)/%.o: %.c | $(BUILD)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(shell $(PKG_CONFIG) --cflags libgpiod) -c $< -o $@
 
 clean:
-	$(RM) $(TARGET) $(OBJS)
+	$(RM) -r $(BUILD)
