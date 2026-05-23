@@ -30,17 +30,33 @@ Remove the L298N `ENA` and `ENB` jumpers so the PCA9685 can control speed.
 
 ## Motors And Power
 
-| L298N Pin | Connect To |
+Use this power setup:
+
+- L298N motor power comes from a 2S LiPo.
+- L298N `5V_EN` jumper stays installed.
+- Raspberry Pi is powered from its own regulated 5V supply.
+- Raspberry Pi, PCA9685, L298N, and LiPo grounds must be connected together.
+
+| Part / Pin | Connect To |
 | --- | --- |
 | `OUT1`, `OUT2` | Motor A |
 | `OUT3`, `OUT4` | Motor B |
-| `+12V` / `VMS` / motor input | External motor supply `+` |
-| `GND` | External motor supply `-` |
-| `GND` | Raspberry Pi/PCA9685 common ground |
+| L298N `+12V` / `VMS` / motor input | 2S LiPo `+` |
+| L298N `GND` | 2S LiPo `-` |
+| L298N `GND` | Raspberry Pi/PCA9685 common ground |
+| Raspberry Pi power input | Separate regulated 5V supply |
 
-Do not power the motors from the Raspberry Pi 5V pin.
+With the L298N `5V_EN` jumper installed, the L298N onboard regulator powers the L298N logic from the 2S LiPo input.
 
-If the L298N `5V_EN` jumper is removed, connect a regulated 5V supply to the L298N `5V` logic pin.
+Do not connect the 2S LiPo directly to the Raspberry Pi power input. Do not power the motors from the Raspberry Pi 5V pin.
+
+## Ground Connection
+
+All grounds must be common:
+
+```text
+2S LiPo - ---- L298N GND ---- PCA9685 GND ---- Raspberry Pi GND
+```
 
 ## Install
 
