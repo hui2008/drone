@@ -66,17 +66,37 @@ Enable I2C:
 sudo raspi-config
 ```
 
-Then install the scan tools and Python library. Raspberry Pi OS uses an
-externally managed system Python, so install the CircuitPython package inside a
-virtual environment instead of system-wide `pip`.
+Then install the scan tools, build prerequisites, and Python libraries.
+Raspberry Pi OS uses an externally managed system Python, so install the
+CircuitPython package inside a virtual environment instead of system-wide `pip`.
 
 ```bash
 sudo apt update
-sudo apt install -y i2c-tools python3-full python3-venv python3-pip
+sudo apt install -y i2c-tools python3-full python3-venv python3-pip swig liblgpio-dev build-essential
 
 python3 -m venv ~/pca9685-venv
 source ~/pca9685-venv/bin/activate
-pip install adafruit-circuitpython-pca9685
+pip install adafruit-circuitpython-pca9685 rpi-lgpio
+```
+
+If you are using `uv` with an existing virtual environment:
+
+```bash
+sudo apt update
+sudo apt install -y swig liblgpio-dev build-essential
+uv pip install adafruit-circuitpython-pca9685 rpi-lgpio
+```
+
+`rpi-lgpio` depends on `lgpio`. If `uv pip install rpi-lgpio` fails with
+`error: command 'swig' failed: No such file or directory`, install `swig` with
+the `apt install` command above and rerun `uv pip install rpi-lgpio`.
+
+If the next build error says `Python.h` is missing, also install the matching
+Python development package, for example:
+
+```bash
+sudo apt install -y python3.13-dev
+uv pip install rpi-lgpio
 ```
 
 ## Check I2C

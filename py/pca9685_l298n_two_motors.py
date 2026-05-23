@@ -3,7 +3,7 @@ Drive two DC motors using:
     Raspberry Pi -> PCA9685 over I2C -> L298N motor driver.
 
 Install on the Raspberry Pi:
-    python3 -m pip install adafruit-circuitpython-pca9685
+    python3 -m pip install adafruit-circuitpython-pca9685 rpi-lgpio
 
 Enable I2C first:
     sudo raspi-config
