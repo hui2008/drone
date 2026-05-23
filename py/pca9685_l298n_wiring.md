@@ -66,16 +66,59 @@ Enable I2C:
 sudo raspi-config
 ```
 
-Then install the Python library:
+Then install the scan tools and Python library. Raspberry Pi OS uses an
+externally managed system Python, so install the CircuitPython package inside a
+virtual environment instead of system-wide `pip`.
 
 ```bash
-python3 -m pip install adafruit-circuitpython-pca9685
+sudo apt update
+sudo apt install -y i2c-tools python3-full python3-venv python3-pip
+
+python3 -m venv ~/pca9685-venv
+source ~/pca9685-venv/bin/activate
+pip install adafruit-circuitpython-pca9685
 ```
+
+## Check I2C
+
+List available I2C buses:
+
+```bash
+i2cdetect -l
+```
+
+For the Raspberry Pi GPIO header, use bus `1`:
+
+```text
+i2c-1   i2c             bcm2835 (i2c@7e804000)                  I2C adapter
+```
+
+Scan bus `1`:
+
+```bash
+i2cdetect -y 1
+```
+
+Expected PCA9685 result:
+
+```text
+40: 40 -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+70: 70 -- -- -- -- -- -- --
+```
+
+Meaning:
+
+- `0x40` is the PCA9685 main control address.
+- `0x70` is the PCA9685 all-call address.
+- Seeing both means the Raspberry Pi can talk to the PCA9685 over I2C.
+
+If `i2cdetect -l` shows `i2c-20` or `i2c-21`, those are other kernel-exposed I2C
+adapters. For this wiring, use `i2c-1`.
 
 ## Run
 
 ```bash
-python3 py/pca9685_l298n_two_motors.py
+~/pca9685-venv/bin/python py/pca9685_l298n_two_motors.py
 ```
 
 ## Expected Test
