@@ -26,12 +26,16 @@ MOTOR_A_ENA = 0
 MOTOR_A_IN1 = 1
 MOTOR_A_IN2 = 2
 
-MOTOR_B_ENB = 3
-MOTOR_B_IN3 = 4
-MOTOR_B_IN4 = 5
+MOTOR_B_IN3 = 3
+MOTOR_B_IN4 = 4
+MOTOR_B_ENB = 5
 
 PWM_OFF = 0x0000
 PWM_ON = 0xFFFF
+
+
+def notify(message: str) -> None:
+    print(f"[motor-status] {message}", flush=True)
 
 
 class L298NMotor:
@@ -96,35 +100,47 @@ class TwoMotorDrive:
 
 
 def main() -> None:
+    notify("Starting PCA9685 L298N two-motor test")
+
     i2c = busio.I2C(board.SCL, board.SDA)
     pca = PCA9685(i2c)
     pca.frequency = 1000
+    notify("PCA9685 initialized at 1000 Hz")
 
     drive = TwoMotorDrive(pca)
 
     try:
+        notify("Moving forward at 50% speed for 10 seconds")
         drive.forward(0.5)
         sleep(10)
 
+        notify("Stopping for 5 seconds")
         drive.stop()
         sleep(5)
 
+        notify("Moving backward at 50% speed for 10 seconds")
         drive.backward(0.5)
         sleep(10)
 
+        notify("Stopping for 5 seconds")
         drive.stop()
         sleep(5)
 
+        notify("Turning left at 50% speed for 10 seconds")
         drive.turn_left(0.5)
         sleep(10)
 
+        notify("Turning right at 50% speed for 10 seconds")
         drive.turn_right(0.5)
         sleep(10)
 
+        notify("Final stop")
         drive.stop()
     finally:
+        notify("Cleaning up and disabling PCA9685 outputs")
         drive.stop()
         pca.deinit()
+        notify("Done")
 
 
 if __name__ == "__main__":
