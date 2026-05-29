@@ -586,6 +586,158 @@ detected, calibrated, and its failsafe behavior is verified with wheels off the
 ground, revisit the throttle/radio failsafe configuration and re-enable it for
 real vehicle testing.
 
+### Testing RC Input With The Example Sketch
+
+ArduPilot's example sketches can be built for the Duff board. The RC input
+example is:
+
+```text
+libraries/AP_HAL/examples/RCInput/RCInput.cpp
+```
+
+Build only that example with:
+
+```sh
+./waf configure --board duff
+./waf --targets examples/RCInput
+```
+
+The resulting binary is:
+
+```sh
+build/duff/examples/RCInput
+```
+
+Run it on the Raspberry Pi with:
+
+```sh
+build/duff/examples/RCInput
+```
+
+If the RC input backend has active channels, the output looks like:
+
+```text
+Starting RCInput test
+ 1:1500  2:1500  3:1000  4:1500 ...
+```
+
+Moving transmitter sticks should change the printed channel values.
+
+Duff caveat: the current Duff Linux HAL uses:
+
+```cpp
+static RCInput_RCProtocol rcinDriver{nullptr, nullptr};
+```
+
+This is intentional for normal Rover runtime because the receiver UART is
+provided by ArduPilot serial-port configuration:
+
+```text
+--serial1 /dev/serial0
+SERIAL1_PROTOCOL 23
+```
+
+The standalone `RCInput` example does not load vehicle parameters such as
+`SERIAL1_PROTOCOL=23` in the same way as a full Rover run. Therefore, on Duff it
+may print:
+
+```text
+SBUS FD -1  115200 FD -1
+No channels detected
+```
+
+That result means the standalone example did not attach a UART to
+`AP_RCProtocol`; it does not by itself prove the receiver or wiring is bad.
+
+For Duff, the more representative RC input test is to run Rover and pass the
+receiver UART as `SERIAL1`:
+
+```sh
+./waf configure --board duff
+./waf rover
+build/duff/bin/ardurover --serial0 udp:192.168.1.50:14550 --serial1 /dev/serial0
+```
+
+Then check radio input in QGroundControl, Mission Planner, or MAVProxy while
+moving the transmitter sticks. This exercises the intended path:
+
+```text
+/dev/serial0
+  -> SERIAL1
+  -> SERIAL1_PROTOCOL=23
+  -> AP::RC().add_uart()
+  -> AP_RCProtocol_IBUS
+  -> hal.rcin
+  -> Rover radio input
+```
+
+### RCOutput Example And The RCInput Thread
+
+The standalone `RCOutput` example is useful for testing `RCOutput_Duff`, but it
+still runs inside the full Duff Linux HAL. The example source only calls
+`hal.rcout`, but the Linux HAL also constructs and starts the normal scheduler
+threads, including the RC input thread:
+
+```text
+ap-rcin
+```
+
+That is why an RC output-only test can still print:
+
+```text
+SBUS FD -1  115200 FD -1
+```
+
+Those lines come from `RCInput_RCProtocol::init()`, not from `RCOutput_Duff`.
+
+Observed failure before the guard:
+
+```text
+Thread "ap-rcin" received signal SIGSEGV
+AP_RCProtocol_CRSF::update()
+AP_RCProtocol::new_input()
+Linux::RCInput_RCProtocol::_timer_tick()
+```
+
+The root cause was not PCA9685, I2C, sudo/root, or `RCOutput_Duff`. The crash
+was caused by the Duff RC input backend polling `AP::RC().new_input()` even
+though the standalone example had no RC input source:
+
+```text
+fd_inverted = -1
+fd_115200 = -1
+AP::RC().has_uart() = false
+```
+
+In full Rover runtime this is different. `ardurover` can attach the receiver
+UART through normal serial configuration:
+
+```sh
+build/duff/bin/ardurover --serial1 /dev/serial0
+```
+
+with:
+
+```text
+SERIAL1_PROTOCOL 23
+```
+
+That path registers a UART with `AP_RCProtocol`, so the RC input backend has a
+real input source.
+
+The fix is for `RCInput_RCProtocol::_timer_tick()` to return early when there is
+no directly opened RC fd and no `SERIALx_PROTOCOL=23` UART registered:
+
+```cpp
+have_input_source |= AP::RC().has_uart();
+if (!have_input_source) {
+    return;
+}
+```
+
+This lets `examples/RCOutput` test `RCOutput_Duff` without unrelated RC input
+protocol polling, while preserving normal Rover RC input behavior.
+
 ### Checking `/dev/serial0` On Raspberry Pi
 
 Before relying on FS-iA6B i-BUS input, verify the Raspberry Pi UART in layers:
