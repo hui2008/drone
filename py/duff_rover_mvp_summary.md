@@ -764,6 +764,52 @@ Runtime example with MAVLink on UDP and FS-iA6B i-BUS on the Pi UART:
 ./ardurover --serial0 udp:192.168.1.50:14550 --serial1 /dev/serial0
 ```
 
+### FS-iA6B To Raspberry Pi UART Wiring
+
+Use the FS-iA6B `i-BUS` output, not the six individual PWM channel pins.
+Connect only the one serial signal into the Raspberry Pi UART RX pin.
+
+Basic wiring:
+
+```text
+FS-iA6B +5V           -> 5V BEC or Pi 5V rail, if the power budget allows it
+FS-iA6B GND           -> Raspberry Pi GND
+FS-iA6B i-BUS signal  -> Raspberry Pi GPIO15 / RXD0 / physical pin 10
+```
+
+The Raspberry Pi GPIO pins are 3.3 V inputs and are not 5 V tolerant. The
+FS-iA6B can be powered from 5 V, but the official receiver documentation does
+not clearly specify the i-BUS signal voltage. Treat the i-BUS signal as
+potentially 5 V unless it has been measured on the actual receiver.
+
+If the i-BUS signal is 5 V, do not connect it directly to GPIO15. Use either a
+logic level shifter or a simple two-resistor voltage divider. For one-way
+receiver-to-Pi i-BUS, the divider is enough. Prefer `2k/3.3k` because it gives
+some margin below the Pi's 3.3 V GPIO limit while still producing a valid UART
+logic-high level:
+
+```text
+FS-iA6B i-BUS signal
+        |
+       2k
+        |
+        +----> Raspberry Pi GPIO15 / RXD0 / physical pin 10
+        |
+      3.3k
+        |
+       GND
+```
+
+This converts a 5 V signal to about 3.1 V:
+
+```text
+5 V * 3.3k / (2k + 3.3k) = 3.11 V
+```
+
+Other resistor pairs such as `1k/2k`, `1k/2.2k`, `4.7k/10k`, or `10k/20k` are
+also reasonable. The receiver ground and Raspberry Pi ground must be common,
+even if the receiver is powered from a separate BEC.
+
 On Raspberry Pi OS, enable the hardware UART and disable the Linux login console
 on the UART used for i-BUS. Otherwise the OS and ArduPilot can both try to use
 `/dev/serial0`.
