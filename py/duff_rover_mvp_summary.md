@@ -493,7 +493,28 @@ ls -l /dev/i2c-*
 ```
 
 For the normal Raspberry Pi GPIO header I2C bus, `/dev/i2c-1` should exist. If
-it is missing, enable I2C:
+it is missing, check the Raspberry Pi I2C setting non-interactively:
+
+```sh
+sudo raspi-config nonint get_i2c
+```
+
+The return value is:
+
+```text
+0 = I2C enabled
+1 = I2C disabled
+```
+
+Enable I2C non-interactively with:
+
+```sh
+sudo raspi-config nonint do_i2c 0
+```
+
+Then reboot the Raspberry Pi.
+
+Alternatively, enable I2C from the interactive menu:
 
 ```sh
 sudo raspi-config
