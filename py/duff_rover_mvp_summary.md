@@ -492,8 +492,67 @@ Check for I2C device nodes:
 ls -l /dev/i2c-*
 ```
 
-For the normal Raspberry Pi GPIO header I2C bus, `/dev/i2c-1` should exist. If
-it is missing, check the Raspberry Pi I2C setting non-interactively:
+List the I2C adapters Linux actually exposes:
+
+```sh
+i2cdetect -l
+```
+
+For Duff's normal PCA9685 wiring, use the Raspberry Pi 40-pin header I2C bus:
+
+```text
+GPIO2 = SDA1
+GPIO3 = SCL1
+/dev/i2c-1
+```
+
+A normal listing includes:
+
+```text
+i2c-1  i2c  bcm2835 (i2c@7e804000)  I2C adapter
+```
+
+Some Raspberry Pi kernels also expose extra I2C adapters, for example:
+
+```text
+i2c-20  i2c  fef04500.i2c  I2C adapter
+i2c-21  i2c  fef09500.i2c  I2C adapter
+```
+
+Do not assume those extra adapters are connected to the normal GPIO header.
+`i2c-20` and `i2c-21` are not the standard exposed PCA9685 pins in the Duff
+wiring. They are useful only if a device-tree overlay intentionally maps that
+controller to physical pins and the hardware is wired there.
+
+Normally, do not disable `i2c-20` or `i2c-21` just because they appear in
+`i2cdetect -l`. Extra adapters do not interfere with Duff as long as
+`RCOutput_Duff` uses the correct header bus, `/dev/i2c-1`. Also do not run:
+
+```sh
+sudo raspi-config nonint do_i2c 1
+```
+
+That disables Raspberry Pi I2C globally and can remove the `/dev/i2c-1` bus
+needed by the PCA9685.
+
+If an extra bus is causing a real problem, first identify which overlay or
+device-tree setting created it:
+
+```sh
+grep -nEi 'i2c|dtparam|dtoverlay' /boot/firmware/config.txt /boot/config.txt 2>/dev/null
+dtoverlay -l
+ls -l /proc/device-tree/aliases | grep i2c
+```
+
+Then disable only the specific unneeded overlay and keep the normal header I2C
+setting enabled, usually:
+
+```text
+dtparam=i2c_arm=on
+```
+
+If no `/dev/i2c-*` devices are present, or the expected adapter is missing,
+check the Raspberry Pi I2C setting non-interactively:
 
 ```sh
 sudo raspi-config nonint get_i2c
@@ -535,20 +594,28 @@ sudo apt-get update
 sudo apt-get install -y i2c-tools
 ```
 
-Scan bus 1:
+Scan the Raspberry Pi header I2C bus connected to the PCA9685:
 
 ```sh
 i2cdetect -y 1
 ```
 
 The PCA9685 should appear at `0x40`, shown as `40` in the scan table. If no
-device appears at `0x40`, check:
+device appears at `0x40` on bus 1, check:
 
 - PCA9685 power and ground
 - SDA/SCL wiring to the Raspberry Pi I2C pins
 - Whether the PCA9685 address jumpers changed the address
 - Whether I2C is enabled after reboot
 - Whether another device is holding the bus low
+
+A healthy scan normally shows mostly `--`, with only real responding device
+addresses populated. If nearly every address appears, for example `08` through
+`4f` and `60` through `77`, do not treat that as many devices being present.
+That usually means the I2C bus is electrically bad, commonly because SDA is held
+low, SDA/SCL are shorted or swapped, pull-ups are missing, the device is
+unpowered, or a device is dragging the bus. Fix wiring/power before trusting the
+scan.
 
 If `i2cdetect` works with `sudo` but `ardurover` cannot open the I2C device as a
 normal user, check permissions:
