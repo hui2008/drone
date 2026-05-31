@@ -480,6 +480,71 @@ Can't open /dev/mem
 
 The PCA9685 + L298N output path only needs I2C, not direct Raspberry Pi GPIO. Leaving RPI GPIO disabled lets the HAL use the empty GPIO backend and avoids the `/dev/mem` requirement for this MVP.
 
+## Raspberry Pi I2C Bring-Up
+
+Duff's PCA9685 output board is expected on Raspberry Pi I2C bus 1 at address
+`0x40`. Before testing `RCOutput_Duff`, confirm Linux exposes the I2C device and
+the PCA9685 answers on the bus.
+
+Check for I2C device nodes:
+
+```sh
+ls -l /dev/i2c-*
+```
+
+For the normal Raspberry Pi GPIO header I2C bus, `/dev/i2c-1` should exist. If
+it is missing, enable I2C:
+
+```sh
+sudo raspi-config
+```
+
+Use:
+
+```text
+Interface Options -> I2C -> Enable
+```
+
+Then reboot the Raspberry Pi.
+
+Install the I2C tools if needed:
+
+```sh
+sudo apt-get update
+sudo apt-get install -y i2c-tools
+```
+
+Scan bus 1:
+
+```sh
+i2cdetect -y 1
+```
+
+The PCA9685 should appear at `0x40`, shown as `40` in the scan table. If no
+device appears at `0x40`, check:
+
+- PCA9685 power and ground
+- SDA/SCL wiring to the Raspberry Pi I2C pins
+- Whether the PCA9685 address jumpers changed the address
+- Whether I2C is enabled after reboot
+- Whether another device is holding the bus low
+
+If `i2cdetect` works with `sudo` but `ardurover` cannot open the I2C device as a
+normal user, check permissions:
+
+```sh
+groups
+ls -l /dev/i2c-1
+```
+
+The runtime user should normally be in the `i2c` group. Add it if needed:
+
+```sh
+sudo usermod -aG i2c "$USER"
+```
+
+Log out and back in, or reboot, before retesting group permissions.
+
 ## RC Input For FS-iA6B
 
 Duff should use serial RC input for the FlySky FS-iA6B receiver.
@@ -935,6 +1000,166 @@ Linux `ardurover` supports command-line arguments. Use:
 
 ```sh
 ./ardurover --help
+```
+
+The standalone `examples/RCOutput` binary uses the same Linux HAL argument
+parser, so its `./RCOutput --help` output is also useful when bringing up Duff.
+These arguments tell the Linux HAL what device or network endpoint to use for
+each ArduPilot serial port before the vehicle or example starts.
+
+Relevant source files:
+
+- `ardupilot/libraries/AP_HAL_Linux/HAL_Linux_Class.cpp`
+- `ardupilot/libraries/AP_HAL_Linux/UARTDriver.cpp`
+
+### Serial Port Selection
+
+`--serialN` maps directly to ArduPilot `SERIALN`, where `N` is `0` through `9`.
+The path can be a Linux serial device or a network endpoint:
+
+```text
+/dev/ttyXXX
+tcp:IP:PORT[:wait]
+udp:IP:PORT[:bcast]
+udpin:IP:PORT
+```
+
+Examples:
+
+```sh
+./ardurover --serial0 /dev/ttyAMA0
+./ardurover --serial1 /dev/serial0
+./ardurover --serial3 /dev/ttyS1
+
+./RCOutput --serial0 /dev/ttyAMA0
+./RCOutput --serial1 /dev/ttyUSB0
+./RCOutput --serial3 /dev/ttyS1
+```
+
+Legacy UART aliases still work, but are deprecated:
+
+```text
+-A / --uartA -> SERIAL0
+-C / --uartC -> SERIAL1
+-D / --uartD -> SERIAL2
+-B / --uartB -> SERIAL3
+-E / --uartE -> SERIAL4
+-F / --uartF -> SERIAL5
+-G / --uartG -> SERIAL6
+-H / --uartH -> SERIAL7
+-I / --uartI -> SERIAL8
+-J / --uartJ -> SERIAL9
+```
+
+For example:
+
+```sh
+./RCOutput -A /dev/ttyAMA0
+```
+
+is equivalent to:
+
+```sh
+./RCOutput --serial0 /dev/ttyAMA0
+```
+
+### TCP And UDP Serial Endpoints
+
+A TCP endpoint creates a TCP server bound to the given address and port:
+
+```sh
+./ardurover --serial0 tcp:0.0.0.0:5760:wait
+./RCOutput --serial1 tcp:192.168.2.15:1243:wait
+```
+
+The optional `:wait` flag means the program waits until a TCP client connects.
+
+A UDP output endpoint sends packets to a remote address:
+
+```sh
+./ardurover --serial0 udp:192.168.1.50:14550
+./RCOutput --serial0 udp:11.0.0.2:14550
+```
+
+Broadcast UDP adds `:bcast`:
+
+```sh
+./RCOutput --serial0 udp:11.0.0.255:14550:bcast
+```
+
+A UDP input endpoint listens for incoming UDP packets on the selected port:
+
+```sh
+./ardurover --serial0 udpin:0.0.0.0:14550
+./RCOutput --serial0 udpin:0.0.0.0:14550
+```
+
+`udpin` cannot be combined with `:bcast`.
+
+### Runtime Paths
+
+Set the parameter/storage directory:
+
+```sh
+./ardurover --storage-directory /var/lib/ardupilot
+./ardurover -s /var/lib/ardupilot
+
+./RCOutput --storage-directory /var/APM/storage
+./RCOutput -s /var/APM/storage
+```
+
+Set the log directory:
+
+```sh
+./ardurover --log-directory /var/log/ardupilot
+./ardurover -l /var/log/ardupilot
+
+./RCOutput --log-directory /var/APM/logs
+./RCOutput -l /var/APM/logs
+```
+
+Set the terrain data directory:
+
+```sh
+./ardurover --terrain-directory /var/lib/ardupilot/terrain
+./ardurover -t /var/lib/ardupilot/terrain
+
+./RCOutput --terrain-directory /var/APM/terrain
+./RCOutput -t /var/APM/terrain
+```
+
+Set the defaults file:
+
+```sh
+./ardurover --defaults /path/to/defaults.parm
+```
+
+Set the directory for loadable ArduPilot modules, if module support was built
+in:
+
+```sh
+./ardurover --module-directory /usr/lib/ardupilot/modules
+./ardurover -M /usr/lib/ardupilot/modules
+
+./RCOutput --module-directory /usr/lib/ardupilot/modules
+./RCOutput -M /usr/lib/ardupilot/modules
+```
+
+### CPU Affinity
+
+`--cpu-affinity` pins the process or threads to specific CPU cores. This can be
+useful on Linux boards when more deterministic timing is needed:
+
+```sh
+./ardurover --cpu-affinity 1
+./ardurover --cpu-affinity 1,3
+./ardurover --cpu-affinity 1-3
+./ardurover -c 1
+
+./RCOutput --cpu-affinity 1
+./RCOutput --cpu-affinity 1,3
+./RCOutput --cpu-affinity 1-3
+./RCOutput -c 1
 ```
 
 ## Stopping ArduPilot On Linux
