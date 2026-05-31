@@ -358,11 +358,45 @@ For higher quality rover navigation, GPS-for-yaw with dual GNSS antennas/modules
 ## Duff Rover Build Verification
 
 The Duff board defaults file is embedded by waf during the Linux board build.
-This was verified with:
+Duff now defaults to a Raspberry Pi compatible 32-bit ARMHF Linux toolchain:
+
+```text
+env TOOLCHAIN arm-linux-gnueabihf
+```
+
+The dev container installs the ARMHF cross compiler and the normal
+`pkg-config`/`pkgconf` tooling:
+
+```text
+g++-arm-linux-gnueabihf
+pkg-config
+```
+
+Waf looks for a toolchain-prefixed pkg-config executable named
+`arm-linux-gnueabihf-pkg-config` when `TOOLCHAIN=arm-linux-gnueabihf`.
+Older Ubuntu releases packaged this as `pkg-config-arm-linux-gnueabihf`, but
+the Debian Bookworm/Trixie devcontainer base does not provide that package
+name. The devcontainer Dockerfile therefore creates
+`/usr/local/bin/arm-linux-gnueabihf-pkg-config` as a small wrapper around the
+normal `pkg-config`. This is intentional and is the portable fix for the Duff
+cross-build container.
+
+It also enables Debian multi-arch support with `dpkg --add-architecture armhf`,
+which lets apt install ARMHF packages when cross-build dependencies need target
+headers or libraries.
+
+Default Duff build:
 
 ```sh
 ./waf configure --board duff
-./waf rover
+./waf rover --board duff
+```
+
+Override to a native 64-bit build from the CLI:
+
+```sh
+./waf configure --board duff --toolchain native
+./waf rover --board duff
 ```
 
 The build output included:
@@ -654,7 +688,7 @@ receiver UART as `SERIAL1`:
 
 ```sh
 ./waf configure --board duff
-./waf rover
+./waf rover --board duff
 build/duff/bin/ardurover --serial0 udp:192.168.1.50:14550 --serial1 /dev/serial0
 ```
 
@@ -1187,10 +1221,19 @@ Important configure output:
 - `Setting board to : duff` means the Duff board profile was selected.
 - `Processing ... hwdef/duff/hwdef.dat` means Duff's hardware definition was read.
 - `Writing hwdef setup in ... build/duff/hwdef.h` means the hwdef was converted into C/C++ compile-time defines.
-- `Using toolchain : native` means Duff builds as a native Linux binary with the host compiler.
-- `CXX Compiler : g++ 14.2.0` confirms the compiler used in this environment.
+- `Using toolchain : arm-linux-gnueabihf` means Duff is building as a 32-bit ARMHF Linux binary.
+- `CXX Compiler : arm-linux-gnueabihf-g++ ...` confirms the ARMHF cross compiler is being used.
 - `libiio : not found` is not a blocker for this MVP because the PCA9685 output path uses I2C directly.
 - `Removing target_list file ... build/duff/target_list` is normal after configure; waf regenerates target metadata on the next build.
+
+To verify the native 64-bit override, configure with:
+
+```text
+./waf configure --board duff --toolchain native
+```
+
+In that case, `Using toolchain : native` means Duff builds with the host
+compiler as a native 64-bit Linux binary on a 64-bit dev container.
 
 The successful configure result was:
 
