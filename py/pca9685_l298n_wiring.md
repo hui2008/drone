@@ -19,12 +19,12 @@ The Python script uses these PCA9685 channels:
 
 | PCA9685 Channel | L298N Pin | Purpose |
 | --- | --- | --- |
-| `0` | `ENA` | Motor A speed |
-| `1` | `IN1` | Motor A direction |
-| `2` | `IN2` | Motor A direction |
-| `3` | `IN3` | Motor B direction |
-| `4` | `IN4` | Motor B direction |
-| `5` | `ENB` | Motor B speed |
+| `5` | `ENA` | Motor A speed |
+| `4` | `IN1` | Motor A direction |
+| `3` | `IN2` | Motor A direction |
+| `2` | `IN3` | Motor B direction |
+| `1` | `IN4` | Motor B direction |
+| `0` | `ENB` | Motor B speed |
 
 Remove the L298N `ENA` and `ENB` jumpers so the PCA9685 can control speed.
 

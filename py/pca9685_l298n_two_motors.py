@@ -26,13 +26,13 @@ from adafruit_pca9685 import PCA9685
 # The PCA9685 is a 16-channel PWM controller connected to the Pi over I2C.
 # Each channel below maps to one control wire on the L298N motor driver.
 # Change these if you wire the L298N to different PCA9685 channels.
-MOTOR_A_ENA = 5   # Channel 0: PWM speed control for motor A (ENA pin on L298N)
-MOTOR_A_IN1 = 4   # Channel 1: direction bit 1 for motor A
-MOTOR_A_IN2 = 3   # Channel 2: direction bit 2 for motor A
+MOTOR_A_ENA = 5   # Channel 5: PWM speed control for motor A (ENA pin on L298N)
+MOTOR_A_IN1 = 4   # Channel 4: direction bit 1 for motor A
+MOTOR_A_IN2 = 3   # Channel 3: direction bit 2 for motor A
 
-MOTOR_B_IN3 = 2   # Channel 3: direction bit 1 for motor B
-MOTOR_B_IN4 = 1   # Channel 4: direction bit 2 for motor B
-MOTOR_B_ENB = 0   # Channel 5: PWM speed control for motor B (ENB pin on L298N)
+MOTOR_B_IN3 = 2   # Channel 2: direction bit 1 for motor B
+MOTOR_B_IN4 = 1   # Channel 1: direction bit 2 for motor B
+MOTOR_B_ENB = 0   # Channel 0: PWM speed control for motor B (ENB pin on L298N)
 
 # The PCA9685 uses 16-bit duty cycle values.
 # 0x0000 = 0% duty cycle (logic LOW), 0xFFFF = 100% duty cycle (logic HIGH).
